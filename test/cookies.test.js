@@ -5,6 +5,9 @@ import {
   getSessionIdFromRequest,
   setSessionCookie,
   clearSessionCookie,
+  setStateCookie,
+  getStateFromRequest,
+  clearStateCookie,
 } from "../lib/cookies.js";
 
 const SECRET = "test-secret";
@@ -45,6 +48,27 @@ describe("cookies", () => {
   it("clearSessionCookie sets Set-Cookie with Max-Age=0", () => {
     const res = { setHeader: (k, v) => { res._headers = res._headers || {}; res._headers[k] = v; }, _headers: {} };
     clearSessionCookie(res);
+    expect(res._headers["Set-Cookie"]).toContain("Max-Age=0");
+  });
+
+  it("setStateCookie and getStateFromRequest round-trip with signature", () => {
+    const res = { setHeader: (k, v) => { res._headers = res._headers || {}; res._headers[k] = v; }, _headers: {} };
+    setStateCookie(res, "public_st_123", SECRET);
+    expect(res._headers["Set-Cookie"]).toContain("ar_oauth_state=");
+    const encoded = res._headers["Set-Cookie"].split(";")[0].replace("ar_oauth_state=", "").trim();
+    const req = { headers: { cookie: `ar_oauth_state=${encoded}` } };
+    expect(getStateFromRequest(req, SECRET)).toBe("public_st_123");
+  });
+
+  it("getStateFromRequest returns null for tampered state cookie", () => {
+    const req = { headers: { cookie: "ar_oauth_state=public_st_123.badsig" } };
+    expect(getStateFromRequest(req, SECRET)).toBeNull();
+  });
+
+  it("clearStateCookie sets Set-Cookie with Max-Age=0", () => {
+    const res = { setHeader: (k, v) => { res._headers = res._headers || {}; res._headers[k] = v; }, _headers: {} };
+    clearStateCookie(res);
+    expect(res._headers["Set-Cookie"]).toContain("ar_oauth_state=;");
     expect(res._headers["Set-Cookie"]).toContain("Max-Age=0");
   });
 });

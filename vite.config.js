@@ -7,7 +7,7 @@ import { runPipeline } from "./lib/run-pipeline.js";
 import { collectAndNormalize } from "./lib/collect-and-normalize.js";
 import { validateEvidence } from "./lib/validate-evidence.js";
 import { createJob, getJob, getLatestJob, runInBackground } from "./lib/job-store.js";
-import { createSession, getSession, destroySession, setOAuthState, getAndRemoveOAuthState } from "./lib/session-store.js";
+import { createSession, getSession, destroySession } from "./lib/session-store.js";
 import {
   getAuthRedirectUrl,
   exchangeCodeForToken,
@@ -22,6 +22,7 @@ import {
   clearSessionCookie,
   setStateCookie,
   getStateFromRequest,
+  clearStateCookie,
 } from "./lib/cookies.js";
 
 const DATE_YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,21 +75,20 @@ function apiRoutesPlugin() {
           }
           const scope = (new URL(req.url || "", "http://x").searchParams.get("scope")) || "public";
           const state = `${scope}_${randomState()}`;
-          const stateId = `oid_${Math.random().toString(36).slice(2, 14)}`;
-          setOAuthState(stateId, state);
-          setStateCookie(res, stateId);
+          setStateCookie(res, state, sessionSecret, { secure: isSecure });
           const url = getAuthRedirectUrl(scope, state, redirectUri, clientId);
           res.writeHead(302, { Location: url });
           res.end();
           return;
         }
 
+        const cookieOpts = { secure: isSecure };
         if (req.method === "GET" && path === "/callback/github") {
           const fullUrl = `${origin}${req.url || ""}`;
           const callbackReq = { ...req, url: fullUrl };
           handleCallback(callbackReq, res, {
-            getStateFromRequest: () => getStateFromRequest(req),
-            getAndRemoveOAuthState,
+            getStateFromRequest: (r) => getStateFromRequest(r, sessionSecret),
+            clearStateCookie,
             setSessionCookie,
             createSession,
             exchangeCodeForToken: (code, uri) =>
@@ -96,6 +96,7 @@ function apiRoutesPlugin() {
             getGitHubUser: (token) => getGitHubUser(token, fetch),
             redirectUri,
             sessionSecret,
+            cookieOpts,
           }).catch((e) => {
             res.writeHead(500);
             res.end(e.message || "Callback failed");

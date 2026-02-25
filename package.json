@@ -20,7 +20,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "start": "node server.js"
   },
   "type": "module",
   "dependencies": {

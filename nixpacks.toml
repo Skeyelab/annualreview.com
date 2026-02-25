@@ -1,0 +1,8 @@
+# Coolify/Nixpacks: build Vite app then run Node server (API + static).
+# Without this, Nixpacks may treat the app as static-only and not run server.js.
+
+[phases.build]
+cmds = ["yarn build"]
+
+[start]
+cmd = "yarn start"

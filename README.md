@@ -20,6 +20,15 @@ This repo contains:
 
 **Quick path:** [docs/how-to-get-evidence.md](docs/how-to-get-evidence.md) — create a GitHub token, run collect + normalize, then paste or upload **evidence.json** on the Generate page.
 
+## Production (Coolify / Node)
+
+The app needs a Node server in production so `/api/auth/*` and other API routes work. Use the included server:
+
+- **Build:** `yarn build`
+- **Run:** `yarn start` (or `node server.js`) — serves `dist/` and API on `PORT` (default 3000).
+
+**Required env in production:** `SESSION_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `OPENAI_API_KEY`. In GitHub OAuth App settings, set **Authorization callback URL** to `https://<your-domain>/api/auth/callback/github`. See [docs/oauth-scopes.md](docs/oauth-scopes.md).
+
 ## Scripts
 
 - **Collect (on-demand):** `GITHUB_TOKEN=xxx yarn collect --start YYYY-MM-DD --end YYYY-MM-DD --output raw.json` — fetches your PRs and reviews from GitHub for the date range. No cron required; run when you want fresh data.

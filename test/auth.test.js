@@ -85,9 +85,8 @@ describe("auth", () => {
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ login: "bob" }) });
       const deps = {
         getStateFromRequest: () => "st1",
-        getAndRemoveOAuthState: (id) => (id === "st1" ? "st1" : null),
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
-        setStateCookie: vi.fn(),
         createSession: createSessionSpy,
         exchangeCodeForToken: (code, redirectUri) =>
           exchangeCodeForToken(code, redirectUri, clientId, clientSecret, fetchFn),
@@ -103,35 +102,35 @@ describe("auth", () => {
       expect(res.end).toHaveBeenCalled();
     });
 
-    it("with invalid state returns 400", async () => {
-      const res = { writeHead: vi.fn(), end: vi.fn() };
+    it("with invalid state redirects to home with error", async () => {
+      const res = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() };
       const req = { url: "/api/auth/callback/github?code=abc&state=st1", headers: { cookie: "ar_oauth_state=wrong" } };
       const deps = {
         getStateFromRequest: () => "wrong",
-        getAndRemoveOAuthState: () => null,
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
         createSession: vi.fn(),
         redirectUri: "https://app/cb",
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(400);
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
       expect(deps.createSession).not.toHaveBeenCalled();
     });
 
-    it("with missing state returns 400", async () => {
-      const res = { writeHead: vi.fn(), end: vi.fn() };
+    it("with missing state redirects to home with error", async () => {
+      const res = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() };
       const req = { url: "/api/auth/callback/github?code=abc", headers: {} };
       const deps = {
         getStateFromRequest: () => null,
-        getAndRemoveOAuthState: () => null,
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
         createSession: vi.fn(),
         redirectUri: "https://app/cb",
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(400);
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
     });
   });
 

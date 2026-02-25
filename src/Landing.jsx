@@ -36,6 +36,7 @@ const STEPS = [
 
 export default function Landing() {
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const authError = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error") === "auth_failed";
 
   useEffect(() => {
     const onScroll = () => setShowStickyCta(window.scrollY > SCROLL_Y_SHOW_STICKY_CTA);
@@ -54,6 +55,12 @@ export default function Landing() {
               Generate my review <span className="btn-arrow">→</span>
             </a>
           </div>
+        </div>
+      )}
+      {authError && (
+        <div className="auth-error-banner" role="alert">
+          <p>GitHub sign-in didn’t complete. Try again from the Generate page, or check that your production URL is set as the callback URL in your GitHub OAuth app.</p>
+          <a href="/">Dismiss</a>
         </div>
       )}
       <nav className="nav">
