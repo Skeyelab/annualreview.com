@@ -200,3 +200,161 @@
   overflow: auto;
   max-height: 20rem;
 }
+
+/* ── GitHub Connect ── */
+.generate-step {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.generate-step:last-of-type {
+  border-bottom: none;
+}
+
+.generate-step-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gh-connect-loading {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.gh-connect-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gh-connect-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.gh-connect-login {
+  font-size: 0.95rem;
+}
+
+.gh-connect-disconnect {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.gh-connect-disconnect:hover {
+  color: var(--text);
+}
+
+.gh-connect-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gh-connect-desc {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.gh-connect-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-gh-connect {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--text);
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.btn-gh-connect:hover {
+  opacity: 0.85;
+}
+
+.btn-gh-connect-outline {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.btn-gh-connect-outline:hover {
+  background: var(--bg-elevated);
+  opacity: 1;
+}
+
+/* ── Timeframe ── */
+.generate-timeframe {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.generate-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.generate-date-input {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.generate-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.generate-import-btn {
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.generate-import-btn:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.generate-import-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.generate-import-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}

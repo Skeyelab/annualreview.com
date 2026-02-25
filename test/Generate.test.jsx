@@ -6,27 +6,37 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Generate from "../src/Generate.jsx";
 
+const authMeNotConnected = {
+  ok: true,
+  json: () => Promise.resolve({ connected: false }),
+};
+
 describe("Generate", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
+    // Default: /api/auth/me returns not connected for all calls
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(authMeNotConnected));
   });
 
-  it("renders title and evidence textarea", () => {
+  it("renders title and evidence textarea", async () => {
     render(<Generate />);
-    expect(screen.getByRole("heading", { name: /generate review/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /generate review/i })).toBeInTheDocument();
+    });
     expect(screen.getByPlaceholderText(/timeframe.*contributions/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate review/i })).toBeInTheDocument();
   });
 
   it("Try sample loads sample JSON into textarea", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          timeframe: { start_date: "2025-01-01", end_date: "2025-12-31" },
-          contributions: [],
-        }),
-    });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(authMeNotConnected) // /api/auth/me from GitHubConnect
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            timeframe: { start_date: "2025-01-01", end_date: "2025-12-31" },
+            contributions: [],
+          }),
+      });
     render(<Generate />);
     fireEvent.click(screen.getByRole("button", { name: /try sample/i }));
     await waitFor(() => {
