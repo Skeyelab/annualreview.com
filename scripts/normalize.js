@@ -47,6 +47,7 @@ function createContribution(overrides = {}) {
   return {
     id: "",
     type: "",
+    source: "github",
     title: "",
     url: "",
     repo: "",

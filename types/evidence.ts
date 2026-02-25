@@ -20,15 +20,34 @@ export interface RoleContext {
   focus_areas?: string[];
 }
 
-export type ContributionType = "pull_request" | "review" | "release" | "issue";
+export type ContributionType =
+  | "pull_request"
+  | "review"
+  | "release"
+  | "issue"
+  | "slack_message"
+  | "slack_thread"
+  | "jira_issue"
+  | "jira_comment";
+
+export type SourceType = "github" | "slack" | "jira" | "linear";
 
 export interface Contribution {
-  /** e.g. "repo#1234" */
+  /** e.g. "repo#<number>", "slack#<channel>#<timestamp>", "jira#<project>-<number>" */
   id: string;
   type: ContributionType;
+  /** Origin of this contribution. Defaults to "github" for backward compatibility. */
+  source?: SourceType;
   title: string;
   url: string;
-  repo: string;
+  /** GitHub org/repo. Optional for non-GitHub sources. */
+  repo?: string;
+  /** Slack channel name or ID (Slack source). */
+  channel?: string;
+  /** Jira/Linear project key (Jira/Linear source). */
+  project?: string;
+  /** Source-specific extra fields (e.g. Slack thread_ts, Jira issue key/status). */
+  meta?: Record<string, unknown>;
   merged_at?: DateTimeString | null;
   labels?: string[];
   files_changed?: number;

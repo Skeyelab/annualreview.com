@@ -107,7 +107,7 @@ Concretely: add `source` (optional), allow new types in a single union, add opti
 | Phase | Scope | Deliverable |
 |-------|--------|-------------|
 | **Current** | GitHub only | One evidence contract, one pipeline. Done. |
-| **Schema** | Extend evidence.json | Add optional `source`, new types, optional `channel`/`project`/`meta`. Backward compatible. |
+| **Schema** ✅ | Extend evidence.json | Added optional `source`, new types (`slack_message`, `slack_thread`, `jira_issue`, `jira_comment`), optional `channel`/`project`/`meta`, `repo` made optional. Backward compatible. GitHub normalizer emits `source: "github"`. |
 | **Merge** | Multi-source evidence | UI or script: “Import from GitHub + Slack + Jira” → run each collector/normalizer → merge into one contributions array → run existing pipeline. |
 | **Slack** | Slack ingestion | Slack OAuth, collector, normalizer (messages/threads → contributions), add to merge. |
 | **Jira** | Jira ingestion | Jira auth, collector, normalizer (issues/comments → contributions), add to merge. |

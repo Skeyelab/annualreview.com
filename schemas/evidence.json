@@ -40,16 +40,28 @@
   "definitions": {
     "contribution": {
       "type": "object",
-      "required": ["id", "type", "title", "url", "repo"],
+      "required": ["id", "type", "title", "url"],
       "properties": {
-        "id": { "type": "string", "description": "e.g. repo#1234" },
+        "id": { "type": "string", "description": "e.g. repo#1234, slack#C123#ts, jira#PROJ-1" },
         "type": {
           "type": "string",
-          "enum": ["pull_request", "review", "release", "issue"]
+          "enum": ["pull_request", "review", "release", "issue", "slack_message", "slack_thread", "jira_issue", "jira_comment"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["github", "slack", "jira", "linear"],
+          "description": "Origin of this contribution. Defaults to 'github' for backward compatibility."
         },
         "title": { "type": "string" },
         "url": { "type": "string", "format": "uri" },
-        "repo": { "type": "string" },
+        "repo": { "type": "string", "description": "GitHub org/repo. Optional for non-GitHub sources." },
+        "channel": { "type": "string", "description": "Slack channel name or ID (Slack source)." },
+        "project": { "type": "string", "description": "Jira/Linear project key (Jira/Linear source)." },
+        "meta": {
+          "type": "object",
+          "description": "Source-specific extra fields (e.g. Slack thread_ts, Jira issue key/status).",
+          "additionalProperties": true
+        },
         "merged_at": { "type": ["string", "null"], "format": "date-time" },
         "labels": {
           "type": "array",

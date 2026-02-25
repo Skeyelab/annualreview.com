@@ -36,6 +36,7 @@ describe("normalize", () => {
     expect(evidence.contributions).toHaveLength(1);
     const c = evidence.contributions[0];
     expect(c.type).toBe("pull_request");
+    expect(c.source).toBe("github");
     expect(c.id).toBe("org/repo#42");
     expect(c.title).toBe("Add feature");
     expect(c.repo).toBe("org/repo");
