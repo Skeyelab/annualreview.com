@@ -1,10 +1,6 @@
-# Making it real: GitHub OAuth and web flow
+# GitHub OAuth setup guide (admin/deployer)
 
-Right now the app has **no auth**. The Generate page expects pasted/uploaded evidence JSON. The collector runs only via CLI (`GITHUB_TOKEN=xxx yarn collect ...`). To get a real "Connect GitHub" flow you need:
-
-1. **A GitHub OAuth App** (not a "GitHub App" — that’s for bot/install flows).
-2. **Auth routes and session** on your server.
-3. **An import API** that uses the user’s token to run collect + normalize and return evidence.
+The app ships with a full GitHub OAuth + import flow (`server.js`, `src/Generate.jsx`). To activate it you only need to create an OAuth App on GitHub and set three environment variables.
 
 ---
 
@@ -86,4 +82,4 @@ If the callback URL doesn’t match exactly, GitHub will show an error and not r
 - Use **HTTPS** in production so the session cookie is protected.
 - Follow [oauth-scopes.md](./oauth-scopes.md): public-only by default; only request `repo` when the user explicitly chooses "include private repos."
 
-Once the OAuth App exists and these routes + session + import API are implemented, the app becomes "real": users can connect GitHub, pick a timeframe, import evidence, and generate without touching the CLI or pasting JSON.
+Once the OAuth App exists and the env vars are set, users can connect GitHub, pick a timeframe, import evidence, and generate without touching the CLI or pasting JSON.
