@@ -48,12 +48,14 @@ export default function Generate() {
 
   const loadSample = async () => {
     try {
-      const res = await fetch("/sample-evidence.json");
+      const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+      const res = await fetch(`${base}sample-evidence.json`);
+      if (!res.ok) throw new Error(`Sample not found (${res.status})`);
       const data = await res.json();
       setEvidenceText(JSON.stringify(data, null, 2));
       setError(null);
-    } catch {
-      setError("Could not load sample.");
+    } catch (e) {
+      setError(e.message || "Could not load sample.");
     }
   };
 
