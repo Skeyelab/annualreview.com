@@ -7,7 +7,7 @@ import { runPipeline } from "./lib/run-pipeline.js";
 import { collectAndNormalize } from "./lib/collect-and-normalize.js";
 import { validateEvidence } from "./lib/validate-evidence.js";
 import { createJob, getJob, getLatestJob, runInBackground } from "./lib/job-store.js";
-import { createSession, getSession, destroySession } from "./lib/session-store.js";
+import { createSession, getSession, destroySession, setOAuthState, getAndRemoveOAuthState } from "./lib/session-store.js";
 import {
   getAuthRedirectUrl,
   exchangeCodeForToken,
@@ -76,6 +76,7 @@ function apiRoutesPlugin() {
           const scope = (new URL(req.url || "", "http://x").searchParams.get("scope")) || "public";
           const state = `${scope}_${randomState()}`;
           setStateCookie(res, state, sessionSecret, { secure: isSecure });
+          setOAuthState(state, state);
           const url = getAuthRedirectUrl(scope, state, redirectUri, clientId);
           res.writeHead(302, { Location: url });
           res.end();
@@ -88,6 +89,7 @@ function apiRoutesPlugin() {
           const callbackReq = { ...req, url: fullUrl };
           handleCallback(callbackReq, res, {
             getStateFromRequest: (r) => getStateFromRequest(r, sessionSecret),
+            getAndRemoveOAuthState,
             clearStateCookie,
             setSessionCookie,
             createSession,
