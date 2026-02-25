@@ -114,4 +114,35 @@ describe("fitEvidenceToBudget", () => {
     expect(fitted.contributions[0].body).toBeUndefined();
     expect(fitted.contributions[0].body_preview).toBeDefined();
   });
+
+  it("returns evidence with timeframe and contributions (contract)", () => {
+    const evidence = {
+      timeframe: { start_date: "2025-01-01", end_date: "2025-12-31" },
+      contributions: [{ id: "r#1", title: "X" }],
+    };
+    const fitted = fitEvidenceToBudget(evidence, (ev) => JSON.stringify(ev), 50_000);
+    expect(fitted).toHaveProperty("timeframe", evidence.timeframe);
+    expect(fitted).toHaveProperty("contributions");
+    expect(Array.isArray(fitted.contributions)).toBe(true);
+  });
+
+  it("binary search phase caps contribution count when over budget", () => {
+    const evidence = {
+      timeframe: { start_date: "2025-01-01", end_date: "2025-12-31" },
+      contributions: Array.from({ length: 100 }, (_, i) => ({
+        id: `r#${i}`,
+        type: "pull_request",
+        title: "PR",
+        url: "https://x/y",
+        repo: "x/y",
+        merged_at: "2025-06-01",
+        summary: "Summary text that adds tokens",
+      })),
+    };
+    const getPayload = (ev) => JSON.stringify(ev);
+    const fitted = fitEvidenceToBudget(evidence, getPayload, 500);
+    expect(estimateTokens(getPayload(fitted))).toBeLessThanOrEqual(500);
+    expect(fitted.contributions.length).toBeLessThan(100);
+    expect(fitted.contributions.length).toBeGreaterThan(0);
+  });
 });

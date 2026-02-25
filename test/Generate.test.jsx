@@ -2,9 +2,9 @@
  * @vitest-environment jsdom
  */
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import Generate from "../src/Generate.jsx";
+import Generate, { pollJob } from "../src/Generate.jsx";
 
 /** Response-like mock: component uses res.text() or res.json() depending on route. */
 function mockRes(body, ok = true, status = ok ? 200 : 400) {
@@ -130,5 +130,32 @@ describe("Generate", () => {
     expect(screen.getByText(/signed in as/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/paste your github token/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /fetch my data/i })).toBeInTheDocument();
+  });
+});
+
+describe("pollJob", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("uses adaptive backoff: first wait 500ms, then 750ms, then resolves when job done", async () => {
+    const result = { themes: [], bullets: {}, stories: {}, self_eval: {} };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(mockRes({ status: "running", progress: "1/4 Themes" }))
+      .mockResolvedValueOnce(mockRes({ status: "running", progress: "2/4 Bullets" }))
+      .mockResolvedValueOnce(mockRes({ status: "done", result }));
+    const p = pollJob("j1", vi.fn());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(750);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    const out = await p;
+    expect(out).toEqual(result);
   });
 });
