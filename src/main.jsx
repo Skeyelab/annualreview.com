@@ -1,6 +1,7 @@
 // Entry: mount App (path-based routing) and global styles.
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "./posthog";
 import App from "./App";
 import "./index.css";
 

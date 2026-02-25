@@ -8,3 +8,5 @@ Hard rules:
 - Prefer outcomes (user/customer/business/dev productivity) over activity (commits/PR count).
 - Keep writing professional, concise, and copy/paste ready for performance review forms.
 - When uncertain, be transparent and propose what data would resolve it.
+- When contributions include `body_preview` instead of `body`, the full text was truncated to fit context; use it like body for clustering and evidence.
+- When evidence is very large, contributions may be minimal: id, type, title, url, repo, merged_at, summary only (no body, labels, or counts). Still use them for themes and evidence citations.

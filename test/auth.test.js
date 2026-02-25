@@ -3,6 +3,7 @@ import {
   getAuthRedirectUrl,
   exchangeCodeForToken,
   getGitHubUser,
+  buildCallbackRequest,
   handleCallback,
   handleMe,
   handleLogout,
@@ -69,6 +70,22 @@ describe("auth", () => {
   });
 
   describe("handleCallback", () => {
+    it("buildCallbackRequest preserves non-enumerable headers", () => {
+      const originalReq = {};
+      Object.defineProperty(originalReq, "headers", {
+        value: { cookie: "ar_oauth_state=signed" },
+        enumerable: false,
+      });
+
+      const callbackReq = buildCallbackRequest(
+        originalReq,
+        "https://annualreview.dev/api/auth/callback/github?code=abc&state=st1"
+      );
+
+      expect(callbackReq.url).toContain("/api/auth/callback/github");
+      expect(callbackReq.headers?.cookie).toBe("ar_oauth_state=signed");
+    });
+
     it("with valid code creates session and redirects", async () => {
       const sessionId = createSession({ access_token: "old", login: "old", scope: "x" });
       destroySession(sessionId);
@@ -85,9 +102,8 @@ describe("auth", () => {
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ login: "bob" }) });
       const deps = {
         getStateFromRequest: () => "st1",
-        getAndRemoveOAuthState: (id) => (id === "st1" ? "st1" : null),
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
-        setStateCookie: vi.fn(),
         createSession: createSessionSpy,
         exchangeCodeForToken: (code, redirectUri) =>
           exchangeCodeForToken(code, redirectUri, clientId, clientSecret, fetchFn),
@@ -103,35 +119,35 @@ describe("auth", () => {
       expect(res.end).toHaveBeenCalled();
     });
 
-    it("with invalid state returns 400", async () => {
-      const res = { writeHead: vi.fn(), end: vi.fn() };
+    it("with invalid state redirects to home with error", async () => {
+      const res = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() };
       const req = { url: "/api/auth/callback/github?code=abc&state=st1", headers: { cookie: "ar_oauth_state=wrong" } };
       const deps = {
         getStateFromRequest: () => "wrong",
-        getAndRemoveOAuthState: () => null,
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
         createSession: vi.fn(),
         redirectUri: "https://app/cb",
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(400);
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
       expect(deps.createSession).not.toHaveBeenCalled();
     });
 
-    it("with missing state returns 400", async () => {
-      const res = { writeHead: vi.fn(), end: vi.fn() };
+    it("with missing state redirects to home with error", async () => {
+      const res = { writeHead: vi.fn(), end: vi.fn(), setHeader: vi.fn() };
       const req = { url: "/api/auth/callback/github?code=abc", headers: {} };
       const deps = {
         getStateFromRequest: () => null,
-        getAndRemoveOAuthState: () => null,
+        clearStateCookie: vi.fn(),
         setSessionCookie: vi.fn(),
         createSession: vi.fn(),
         redirectUri: "https://app/cb",
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(400);
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
     });
   });
 

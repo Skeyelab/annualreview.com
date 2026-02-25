@@ -1,6 +1,7 @@
 // Marketing landing: hero, features, how-it-works, CTA. Sticky “Generate” bar after scrolling past hero.
 import React, { useState, useEffect } from "react";
 import "./Landing.css";
+import { posthog } from "./posthog";
 
 const SCROLL_Y_SHOW_STICKY_CTA = 400;
 
@@ -36,6 +37,7 @@ const STEPS = [
 
 export default function Landing() {
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const authError = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("error") === "auth_failed";
 
   useEffect(() => {
     const onScroll = () => setShowStickyCta(window.scrollY > SCROLL_Y_SHOW_STICKY_CTA);
@@ -50,10 +52,16 @@ export default function Landing() {
         <div className="sticky-cta" role="banner">
           <div className="sticky-cta-inner">
             <span className="sticky-cta-text">Turn your GitHub activity into a review in 5 minutes.</span>
-            <a href="/generate" className="btn btn-primary">
+            <a href="/generate" className="btn btn-primary" onClick={() => posthog?.capture("cta_clicked", { location: "sticky" })}>
               Generate my review <span className="btn-arrow">→</span>
             </a>
           </div>
+        </div>
+      )}
+      {authError && (
+        <div className="auth-error-banner" role="alert">
+          <p>GitHub sign-in didn’t complete. Try again from the Generate page, or check that your production URL is set as the callback URL in your GitHub OAuth app.</p>
+          <a href="/">Dismiss</a>
         </div>
       )}
       <nav className="nav">
@@ -65,7 +73,7 @@ export default function Landing() {
           <div className="nav-links">
             <a href="#features">Features</a>
             <a href="#how">How it works</a>
-            <a href="/generate" className="nav-cta">Get started</a>
+            <a href="/generate" className="nav-cta" onClick={() => posthog?.capture("cta_clicked", { location: "nav" })}>Get started</a>
           </div>
         </div>
       </nav>
@@ -86,7 +94,7 @@ export default function Landing() {
               claim linked to a real PR.
             </p>
             <div className="hero-actions">
-              <a href="/generate" className="btn btn-primary btn-lg">
+              <a href="/generate" className="btn btn-primary btn-lg" onClick={() => posthog?.capture("cta_clicked", { location: "hero" })}>
                 Generate my review
                 <span className="btn-arrow">→</span>
               </a>
@@ -212,7 +220,7 @@ export default function Landing() {
             <h2 className="final-cta-title">
               Review season is coming.<br />Be ready in 5 minutes.
             </h2>
-            <a href="/generate" className="btn btn-primary btn-lg">
+            <a href="/generate" className="btn btn-primary btn-lg" onClick={() => posthog?.capture("cta_clicked", { location: "final" })}>
               Generate my review
               <span className="btn-arrow">→</span>
             </a>

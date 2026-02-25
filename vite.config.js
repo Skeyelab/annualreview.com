@@ -22,6 +22,7 @@ import {
   clearSessionCookie,
   setStateCookie,
   getStateFromRequest,
+  clearStateCookie,
 } from "./lib/cookies.js";
 
 const DATE_YYYY_MM_DD = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,21 +75,22 @@ function apiRoutesPlugin() {
           }
           const scope = (new URL(req.url || "", "http://x").searchParams.get("scope")) || "public";
           const state = `${scope}_${randomState()}`;
-          const stateId = `oid_${Math.random().toString(36).slice(2, 14)}`;
-          setOAuthState(stateId, state);
-          setStateCookie(res, stateId);
+          setStateCookie(res, state, sessionSecret, { secure: isSecure });
+          setOAuthState(state, state);
           const url = getAuthRedirectUrl(scope, state, redirectUri, clientId);
           res.writeHead(302, { Location: url });
           res.end();
           return;
         }
 
+        const cookieOpts = { secure: isSecure };
         if (req.method === "GET" && path === "/callback/github") {
           const fullUrl = `${origin}${req.url || ""}`;
           const callbackReq = { ...req, url: fullUrl };
           handleCallback(callbackReq, res, {
-            getStateFromRequest: () => getStateFromRequest(req),
+            getStateFromRequest: (r) => getStateFromRequest(r, sessionSecret),
             getAndRemoveOAuthState,
+            clearStateCookie,
             setSessionCookie,
             createSession,
             exchangeCodeForToken: (code, uri) =>
@@ -96,6 +98,7 @@ function apiRoutesPlugin() {
             getGitHubUser: (token) => getGitHubUser(token, fetch),
             redirectUri,
             sessionSecret,
+            cookieOpts,
           }).catch((e) => {
             res.writeHead(500);
             res.end(e.message || "Callback failed");
@@ -206,4 +209,6 @@ function apiRoutesPlugin() {
 
 export default defineConfig({
   plugins: [react(), apiRoutesPlugin()],
+  // Expose POSTHOG_API_KEY to client as VITE_POSTHOG_API_KEY (Vite only exposes VITE_* by default)
+  envPrefix: ["VITE_", "POSTHOG"],
 });

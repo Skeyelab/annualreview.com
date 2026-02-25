@@ -1,6 +1,7 @@
 // Page: 1) Get GitHub data (OAuth or token or CLI), 2) Paste/upload evidence JSON, 3) Generate → themes, bullets, stories, self-eval.
 import React, { useState, useEffect } from "react";
 import "./Generate.css";
+import { posthog } from "./posthog";
 
 const GITHUB_TOKEN_URL = "https://github.com/settings/tokens/new?scopes=repo&description=AnnualReview.dev";
 const REPO_URL = "https://github.com/Skeyelab/annualreview.com";
@@ -94,6 +95,7 @@ export default function Generate() {
     setLoading(true);
     setResult(null);
     setProgress("");
+    posthog?.capture("review_generate_started");
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -104,12 +106,15 @@ export default function Generate() {
       if (res.status === 202 && data.job_id) {
         const out = await pollJob(data.job_id, setProgress);
         setResult(out);
+        posthog?.capture("review_generate_completed");
       } else if (!res.ok) {
         throw new Error(data.error || "Generate failed");
       } else {
         setResult(data);
+        posthog?.capture("review_generate_completed");
       }
     } catch (e) {
+      posthog?.capture("review_generate_failed", { error: e.message });
       setError(e.message || "Pipeline failed. Is OPENAI_API_KEY set?");
     } finally {
       setLoading(false);
@@ -146,6 +151,7 @@ export default function Generate() {
     setCollectError(null);
     setCollectLoading(true);
     setCollectProgress("");
+    posthog?.capture("collect_started", { method: user ? "session" : "token" });
     try {
       const body = user
         ? { start_date: collectStart, end_date: collectEnd }
@@ -161,13 +167,16 @@ export default function Generate() {
         const evidence = await pollJob(data.job_id, setCollectProgress);
         setEvidenceText(JSON.stringify(evidence, null, 2));
         setError(null);
+        posthog?.capture("collect_completed");
       } else if (!res.ok) {
         throw new Error(data.error || "Fetch failed");
       } else {
         setEvidenceText(JSON.stringify(data, null, 2));
         setError(null);
+        posthog?.capture("collect_completed");
       }
     } catch (e) {
+      posthog?.capture("collect_failed", { error: e.message });
       setCollectError(e.message || "Could not fetch from GitHub.");
     } finally {
       setCollectLoading(false);
@@ -176,6 +185,7 @@ export default function Generate() {
   };
 
   const handleLogout = () => {
+    posthog?.capture("logout");
     fetch("/api/auth/logout", { method: "POST", credentials: "include" }).then(() => setUser(null));
   };
 
@@ -232,8 +242,8 @@ export default function Generate() {
                     We fetch your PRs and reviews for the date range. We never store your code.
                   </p>
                   <div className="generate-oauth-buttons">
-                    <a href="/api/auth/github?scope=public" className="generate-oauth-btn">Connect (public repos only)</a>
-                    <a href="/api/auth/github?scope=private" className="generate-oauth-btn generate-oauth-btn-private">Connect (include private repos)</a>
+                    <a href="/api/auth/github?scope=public" className="generate-oauth-btn" onClick={() => posthog?.capture("login_started", { scope: "public" })}>Connect (public repos only)</a>
+                    <a href="/api/auth/github?scope=private" className="generate-oauth-btn generate-oauth-btn-private" onClick={() => posthog?.capture("login_started", { scope: "private" })}>Connect (include private repos)</a>
                   </div>
                   <p className="generate-option-desc generate-or">Or paste a Personal Access Token:</p>
                   <div className="generate-collect-form">
