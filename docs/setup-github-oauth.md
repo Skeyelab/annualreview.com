@@ -53,29 +53,21 @@ Start with public-only: request `read:user` and `public_repo` in the authorize U
 
 ---
 
-## 4) What’s not implemented yet
+## 4) What’s implemented
 
-The codebase currently has:
+`server.js` and `src/Generate.jsx` now include a complete OAuth + import flow:
 
-- **Landing** → links to `/generate` (paste/upload JSON). No "Connect GitHub" button that hits an auth URL.
-- **Generate** → paste/upload evidence, then `POST /api/generate`. No "Import from GitHub" that uses a stored token.
-- **Server** (`server.js`) → static + `POST /api/generate`. No `/api/auth/*` routes, no session.
-
-You need to add:
-
-| Piece | Purpose |
+| Piece | Status |
 |-------|--------|
-| **GET /api/auth/github** | Redirect user to `https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=read:user%20public_repo` |
-| **GET /api/auth/github/callback** | Exchange `?code=...` for an access token (POST to GitHub), store token in session, redirect to `/generate` or `/` |
-| **Session middleware** | e.g. `express-session` with a secret; store `req.session.githubAccessToken` (and optionally `req.session.user`) |
-| **GET /api/me** (optional) | Return current user from session so the UI can show "Signed in as …" or "Connect GitHub" |
-| **POST /api/import** | Body: `{ start_date, end_date }`. Use `req.session.githubAccessToken`, call `collectRaw()` then normalize, return evidence JSON so the front end can pass it to `/api/generate` or pre-fill the textarea |
-| **POST /api/auth/logout** | Clear session, redirect to `/` |
+| **GET /api/auth/github** | Redirects to GitHub authorize with `read:user public_repo` scope |
+| **GET /api/auth/github/callback** | Exchanges `?code=` for access token, stores in session, redirects to `/generate` |
+| **Session middleware** | `express-session` using `SESSION_SECRET`; token stored in `req.session.githubAccessToken` |
+| **GET /api/me** | Returns `{ connected: true/false }` so the UI shows “Connect GitHub” or the import form |
+| **POST /api/import** | Body: `{ start_date, end_date }`. Runs `collectRaw()` + `normalize()` with the stored token; returns evidence JSON |
+| **POST /api/auth/logout** | Destroys session, redirects to `/` |
+| **Generate UI** | Shows date-range import form when connected; shows “Connect GitHub” link otherwise |
 
-Then on the front end:
-
-- **Landing:** add "Connect GitHub" that goes to `/api/auth/github` (or two buttons: public vs private with different scope params).
-- **Generate:** add "Import from GitHub" (date picker + button) that calls `POST /api/import` and then either runs generate or drops the JSON into the textarea.
+To activate the flow, set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `SESSION_SECRET` as described in section 2 above.
 
 ---
 

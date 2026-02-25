@@ -58,23 +58,27 @@ app.get("/api/auth/github/callback", async (req, res) => {
     return;
   }
   const redirectUri = `${BASE_URL.replace(/\/$/, "")}/api/auth/github/callback`;
-  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: redirectUri,
-    }),
-  });
-  const tokenData = await tokenRes.json();
-  if (tokenData.error) {
-    res.redirect(`/generate?error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`);
-    return;
+  try {
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.error) {
+      res.redirect(`/generate?error=${encodeURIComponent(tokenData.error_description || tokenData.error)}`);
+      return;
+    }
+    req.session.githubAccessToken = tokenData.access_token;
+    res.redirect("/generate");
+  } catch (e) {
+    res.redirect(`/generate?error=${encodeURIComponent(e.message || "Token exchange failed")}`);
   }
-  req.session.githubAccessToken = tokenData.access_token;
-  res.redirect("/generate");
 });
 
 app.post("/api/auth/logout", (req, res) => {
