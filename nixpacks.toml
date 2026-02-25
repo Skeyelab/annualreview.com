@@ -1,5 +1,6 @@
 # Coolify/Nixpacks: build Vite app then run Node server (API + static).
 # Without this, Nixpacks may treat the app as static-only and not run server.js.
+# Use .nvmrc = 22 so Nixpacks picks Node 22 (required by @posthog/ai ^20.20.0 || >=22.22.0).
 
 [phases.build]
 cmds = ["yarn build"]
