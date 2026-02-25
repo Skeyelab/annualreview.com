@@ -6,21 +6,23 @@
 
 import { writeFileSync } from "fs";
 import { fileURLToPath } from "url";
+import { parseArgs as parseArgsBase } from "../lib/parse-args.js";
 
 const GITHUB_GRAPHQL = "https://api.github.com/graphql";
 
 const SEARCH_PR_PAGE_SIZE = 100;
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let start = null, end = null, output = null, noReviews = false;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--start" && args[i + 1]) start = args[++i];
-    else if (args[i] === "--end" && args[i + 1]) end = args[++i];
-    else if (args[i] === "--output" && args[i + 1]) output = args[++i];
-    else if (args[i] === "--no-reviews") noReviews = true;
-  }
-  return { start, end, output, noReviews };
+const COLLECT_GITHUB_SCHEMA = {
+  flags: [
+    { name: "start", option: "--start", type: "string" },
+    { name: "end", option: "--end", type: "string" },
+    { name: "output", option: "--output", type: "string" },
+    { name: "noReviews", option: "--no-reviews", type: "boolean" },
+  ],
+};
+
+function parseArgs(argv) {
+  return parseArgsBase(COLLECT_GITHUB_SCHEMA, argv);
 }
 
 export { parseArgs };

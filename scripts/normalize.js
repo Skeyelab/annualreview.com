@@ -6,19 +6,21 @@
 import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { parseArgs as parseArgsBase } from "../lib/parse-args.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const out = { input: null, output: null, start: null, end: null };
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--input" && args[i + 1]) out.input = args[++i];
-    else if (args[i] === "--output" && args[i + 1]) out.output = args[++i];
-    else if (args[i] === "--start" && args[i + 1]) out.start = args[++i];
-    else if (args[i] === "--end" && args[i + 1]) out.end = args[++i];
-  }
-  return out;
+const NORMALIZE_SCHEMA = {
+  flags: [
+    { name: "input", option: "--input", type: "string" },
+    { name: "output", option: "--output", type: "string" },
+    { name: "start", option: "--start", type: "string" },
+    { name: "end", option: "--end", type: "string" },
+  ],
+};
+
+function parseArgs(argv) {
+  return parseArgsBase(NORMALIZE_SCHEMA, argv);
 }
 
 function parseDate(s) {

@@ -7,10 +7,20 @@
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { parseArgs as parseArgsBase } from "../lib/parse-args.js";
 import { runPipeline } from "../lib/run-pipeline.js";
 import { generateMarkdown } from "../lib/generate-markdown.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const GENERATE_REVIEW_SCHEMA = {
+  flags: [{ name: "outDir", option: "--out", type: "string" }],
+  positionals: [{ name: "input" }],
+  defaults: {
+    input: () => join(process.cwd(), "evidence.json"),
+    outDir: () => join(process.cwd(), "out"),
+  },
+};
 
 const STEP_LABELS = ["Themes", "Impact bullets", "STAR stories", "Self-eval sections"];
 const BAR_WIDTH = 16;
@@ -66,18 +76,8 @@ function onStepProgress(stepIndex, total, label, contributionCount = 0) {
   }
 }
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let input = null;
-  let outDir = join(process.cwd(), "out");
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--out" && args[i + 1]) {
-      outDir = args[++i];
-    } else if (!args[i].startsWith("--")) {
-      input = args[i];
-    }
-  }
-  return { input: input || join(process.cwd(), "evidence.json"), outDir };
+function parseArgs(argv) {
+  return parseArgsBase(GENERATE_REVIEW_SCHEMA, argv);
 }
 
 export { parseArgs };
