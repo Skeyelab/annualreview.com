@@ -1,0 +1,40 @@
+{
+  "timeframe": { "start_date": "2025-01-01", "end_date": "2025-12-31" },
+  "role_context_optional": { "level": "Senior", "job_family": "Engineering", "focus_areas": ["Backend", "Reliability"] },
+  "contributions": [
+    {
+      "id": "org/platform#101",
+      "type": "pull_request",
+      "title": "Add retry backoff for external API calls",
+      "url": "https://github.com/org/platform/pull/101",
+      "repo": "org/platform",
+      "merged_at": "2025-03-15T14:00:00Z",
+      "labels": ["reliability", "backend"],
+      "files_changed": 4,
+      "additions": 120,
+      "deletions": 30,
+      "summary": "Exponential backoff and jitter for third-party API client to reduce cascade failures.",
+      "body": "When the payment provider times out we were hammering them. This adds configurable retry with backoff.",
+      "linked_issues": [],
+      "review_comments_count": 3,
+      "approvals_count": 2
+    },
+    {
+      "id": "org/platform#102",
+      "type": "review",
+      "title": "Review: schema migration",
+      "url": "https://github.com/org/platform/pull/102",
+      "repo": "org/platform",
+      "merged_at": null,
+      "labels": [],
+      "files_changed": 0,
+      "additions": 0,
+      "deletions": 0,
+      "summary": "Approved with suggestions for rollback plan.",
+      "body": "LGTM. Can we add a one-line rollback step to the PR description?",
+      "linked_issues": [],
+      "review_comments_count": 2,
+      "approvals_count": 1
+    }
+  ]
+}

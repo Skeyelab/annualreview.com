@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Skeyelab/annual-review-story-kit/schemas/evidence.json",
+  "title": "Evidence",
+  "description": "Input contract for the annual-review pipeline: timeframe, optional role context, and flat contributions array. See AGENTS.md.",
+  "type": "object",
+  "required": ["timeframe", "contributions"],
+  "properties": {
+    "timeframe": {
+      "type": "object",
+      "properties": {
+        "start_date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "end_date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" }
+      },
+      "required": ["start_date", "end_date"],
+      "additionalProperties": false
+    },
+    "role_context_optional": {
+      "type": "object",
+      "properties": {
+        "level": { "type": "string" },
+        "job_family": { "type": "string" },
+        "focus_areas": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "contributions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contribution" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "contribution": {
+      "type": "object",
+      "required": ["id", "type", "title", "url", "repo"],
+      "properties": {
+        "id": { "type": "string", "description": "e.g. repo#1234" },
+        "type": {
+          "type": "string",
+          "enum": ["pull_request", "review", "release", "issue"]
+        },
+        "title": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "repo": { "type": "string" },
+        "merged_at": { "type": ["string", "null"], "format": "date-time" },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "files_changed": { "type": "number", "minimum": 0 },
+        "additions": { "type": "number", "minimum": 0 },
+        "deletions": { "type": "number", "minimum": 0 },
+        "summary": { "type": "string" },
+        "body": { "type": "string" },
+        "linked_issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "review_comments_count": { "type": "number", "minimum": 0 },
+        "approvals_count": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
