@@ -89,7 +89,7 @@ function handleRequest(req, res) {
     const [area, ...rest] = sub.split("/");
     const restPath = rest.join("/");
     const pathAndQs = restPath + (qs ? "?" + qs : "");
-    const wrappedReq = { ...req, url: pathAndQs ? "/" + pathAndQs : "/" };
+    const wrappedReq = Object.assign(Object.create(req), { url: pathAndQs ? "/" + pathAndQs : "/" });
 
     function next() {
       serveStatic(res, pathname);
