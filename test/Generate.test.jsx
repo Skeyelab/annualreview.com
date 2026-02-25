@@ -4,7 +4,8 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import Generate, { pollJob } from "../src/Generate.jsx";
+import Generate from "../src/Generate.jsx";
+import { pollJob } from "../src/api.js";
 
 /** Response-like mock: component uses res.text() or res.json() depending on route. */
 function mockRes(body, ok = true, status = ok ? 200 : 400) {

@@ -19,10 +19,10 @@ describe("Landing", () => {
     render(<Landing />);
     expect(screen.getByRole("heading", { name: /how it works/i })).toBeInTheDocument();
     const list = screen.getByRole("list");
-    expect(list).toHaveTextContent("Sign in with GitHub");
-    expect(list).toHaveTextContent("Pick the date range");
-    expect(list).toHaveTextContent("AI reads your PRs");
-    expect(list).toHaveTextContent("Copy the Markdown");
+    expect(list).toHaveTextContent("Connect");
+    expect(list).toHaveTextContent("Fetch");
+    expect(list).toHaveTextContent("Generate");
+    expect(list).toHaveTextContent("Ship it");
   });
 
   it("renders hero title and feature cards", () => {
@@ -31,6 +31,6 @@ describe("Landing", () => {
     expect(screen.getByText(/Theme Clusters/)).toBeInTheDocument();
     expect(screen.getByText(/Impact Bullets/)).toBeInTheDocument();
     expect(screen.getByText(/STAR Stories/)).toBeInTheDocument();
-    expect(screen.getByText(/Evidence Appendix/)).toBeInTheDocument();
+    expect(screen.getByText(/Self-eval Sections/)).toBeInTheDocument();
   });
 });
