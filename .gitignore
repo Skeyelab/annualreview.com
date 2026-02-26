@@ -1,6 +1,25 @@
+# Dependencies and build
 node_modules/
 dist/
+
+# Env and secrets
 .env
 .env.*
+!.env.example
+
+# Logs and OS
 *.log
 .DS_Store
+
+# Frontend / Node
+coverage/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Backend (backstop; backend/.gitignore has the rest)
+backend/storage/
+backend/log/
+backend/tmp/
+backend/.bundle/
