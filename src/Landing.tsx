@@ -42,7 +42,7 @@ const STEPS = [
   {
     verb: "Generate",
     detail:
-      "One click: themes, bullets, STAR stories, and self-eval sections—all evidence-linked.",
+      "One click: themes, bullets, STAR stories, and self-eval sections—all evidence-linked. Optionally add your goals so the report is tailored to what you're being measured on.",
   },
   {
     verb: "Ship it",
@@ -132,7 +132,9 @@ export default function Landing() {
               You shipped all year. You shouldn't have to spend a week proving
               it. <strong>Free, no signup.</strong> Sign in with GitHub, use a
               token, or run the CLI. Get themes, bullets, STAR stories, and
-              self-eval sections—every claim linked to a real PR.
+              self-eval sections—every claim linked to a real PR. Optionally add
+              your annual goals to tailor the report to what you're being
+              measured on.
             </p>
             <div className="hero-actions">
               <a
