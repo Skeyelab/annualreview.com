@@ -31,7 +31,7 @@ Turn GitHub contribution evidence into an evidence-backed annual review draft: t
 {
   "timeframe": { "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" },
   "role_context_optional": { "level": "...", "job_family": "...", "focus_areas": ["..."] },
-  "goals": "Optional free-text annual goals (e.g. 'Improve reliability, grow as a tech lead'). Used to frame themes, bullets, and stories.",
+  "goals": "Optional annual goals, one per line. Used to frame themes, bullets, and stories.",
   "contributions": [
     {
       "id": "repo#1234",

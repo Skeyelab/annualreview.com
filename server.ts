@@ -1,7 +1,8 @@
 /**
  * Production server: serves dist/ and the same API routes as the Vite dev server.
  * For Coolify (or any Node host): run `yarn build && yarn start` (or `node --import tsx/esm server.ts`).
- * Set PORT (default 3000), SESSION_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, OPENAI_API_KEY.
+ * Set PORT (default 3000), SESSION_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and either OPENROUTER_API_KEY (recommended) or OPENAI_API_KEY.
+ * Optional: LLM_MODEL to override the default model (anthropic/claude-3.5-sonnet for OpenRouter, gpt-4o-mini for OpenAI).
  * Optional: POSTHOG_API_KEY (and POSTHOG_HOST) for LLM analytics in PostHog.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "http";

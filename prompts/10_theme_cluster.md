@@ -4,7 +4,7 @@ INPUT:
 You will receive JSON with:
 - timeframe {start_date, end_date}
 - role_context (optional) {level, job_family, focus_areas}
-- goals (optional): free-text annual goals provided by the user
+- goals (optional): annual goals provided by the user, one per line
 - contributions: array of items with fields:
   { id, type, title, url, repo, merged_at, labels, files_changed, additions, deletions,
     summary, body, linked_issues, review_comments_count, approvals_count }

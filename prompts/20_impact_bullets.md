@@ -3,7 +3,7 @@ TASK: Write impact-focused annual review bullets from theme clusters + evidence.
 INPUT JSON:
 {
   "timeframe": {...},
-  "goals": "optional free-text annual goals",
+  "goals": "optional annual goals, one per line",
   "themes": [... from previous step ...],
   "contributions": [... same as before ...],
   "user_context_optional": {

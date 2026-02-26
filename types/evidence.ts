@@ -44,7 +44,7 @@ export interface Contribution {
 export interface Evidence {
   timeframe: Timeframe;
   role_context_optional?: RoleContext | null;
-  /** Optional annual goals (e.g. 'Improve reliability, grow as a tech lead'). Used to frame themes, bullets, and stories. */
+  /** Optional annual goals, one per line. Used to frame themes, bullets, and stories. */
   goals?: string;
   contributions: Contribution[];
 }

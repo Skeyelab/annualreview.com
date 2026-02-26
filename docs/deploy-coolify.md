@@ -11,7 +11,9 @@ The repo includes `nixpacks.toml` so Nixpacks runs `yarn build` and then `yarn s
    - `SESSION_SECRET` — random string for signing session cookies (e.g. `openssl rand -hex 32`)
    - `GITHUB_CLIENT_ID` — from [GitHub OAuth App](https://github.com/settings/developers)
    - `GITHUB_CLIENT_SECRET` — from the same OAuth App
-   - `OPENAI_API_KEY` — for the generate pipeline
+   - `OPENROUTER_API_KEY` — **recommended** for the generate pipeline; uses `anthropic/claude-3.5-sonnet` by default (best quality for structured performance review generation). Takes priority over `OPENAI_API_KEY` when both are set.
+   - `OPENAI_API_KEY` — alternative to `OPENROUTER_API_KEY`; uses `gpt-4o-mini` by default.
+   - `LLM_MODEL` — (optional) override the model, e.g. `google/gemini-2.0-flash` (OpenRouter, faster/cheaper) or `gpt-4o` (OpenAI)
    - `POSTHOG_API_KEY` — (optional) same project token as frontend; enables LLM analytics (Traces/Generations in PostHog). If missing, pipeline runs but no LLM events are sent.
    - `POSTHOG_HOST` — (optional) default `https://us.i.posthog.com`; use `https://eu.i.posthog.com` for EU.
 

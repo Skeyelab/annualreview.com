@@ -173,6 +173,7 @@ export interface PipelineResult {
 export interface PipelineOptions {
   apiKey?: string;
   model?: string;
+  baseURL?: string;
   onProgress?: (progress: {
     stepIndex: number;
     total: number;
@@ -189,14 +190,15 @@ export interface PipelineOptions {
 export async function runPipeline(
   evidence: Evidence,
   {
-    apiKey = process.env.OPENAI_API_KEY,
-    model = "gpt-4o-mini",
+    apiKey = process.env.OPENROUTER_API_KEY ?? process.env.OPENAI_API_KEY,
+    model = process.env.LLM_MODEL ?? (process.env.OPENROUTER_API_KEY ? "anthropic/claude-3.5-sonnet" : "gpt-4o-mini"),
+    baseURL = process.env.OPENROUTER_API_KEY ? "https://openrouter.ai/api/v1" : undefined,
     onProgress,
     posthogTraceId,
     posthogDistinctId,
   }: PipelineOptions = {}
 ): Promise<PipelineResult> {
-  if (!apiKey) throw new Error("OPENAI_API_KEY required");
+  if (!apiKey) throw new Error("OPENAI_API_KEY or OPENROUTER_API_KEY required");
 
   const key = cacheKey(evidence, model);
   const cached = resultCache.get(key);
@@ -218,15 +220,24 @@ export async function runPipeline(
   const phClient = phKey
     ? new PostHog(phKey, { host: process.env.POSTHOG_HOST || "https://us.i.posthog.com" })
     : null;
+  const clientOpts: ConstructorParameters<typeof OpenAI>[0] = { apiKey };
+  if (baseURL) {
+    clientOpts.baseURL = baseURL;
+    clientOpts.defaultHeaders = {
+      "HTTP-Referer": "https://annualreview.dev",
+      "X-Title": "AnnualReview.dev",
+    };
+  }
   const openai: OpenAI = phClient
-    ? new PostHogOpenAI({ apiKey, posthog: phClient }) as unknown as OpenAI
-    : new OpenAI({ apiKey });
+    ? new PostHogOpenAI({ ...clientOpts, posthog: phClient }) as unknown as OpenAI
+    : new OpenAI(clientOpts);
 
   const total = STEPS.length;
   const posthogOpts: Record<string, string | boolean> = {};
   if (posthogTraceId != null) posthogOpts.posthogTraceId = posthogTraceId;
   if (posthogDistinctId != null) posthogOpts.posthogDistinctId = posthogDistinctId;
   if (phClient) posthogOpts.posthogCaptureImmediate = true; // send each generation immediately so we don't rely on shutdown flush
+  if (phClient && baseURL?.includes("openrouter.ai")) posthogOpts.posthogProviderOverride = "openrouter"; // correct $ai_provider in PostHog LLM analytics
 
   try {
   const totalStart = Date.now();

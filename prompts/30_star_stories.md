@@ -3,7 +3,7 @@ TASK: Produce 2–3 deeper “impact stories” in STAR format for the strongest
 INPUT JSON:
 {
   "timeframe": {...},
-  "goals": "optional free-text annual goals",
+  "goals": "optional annual goals, one per line",
   "themes": [...],
   "bullets_by_theme": [...],
   "contributions": [...]

@@ -484,7 +484,7 @@ yarn normalize --input raw.json --output evidence.json`}
             id="generate-goals"
             className="generate-textarea generate-goals-textarea"
             placeholder={
-              "Paste your annual goals here, e.g.:\n- Improve system reliability\n- Grow as a technical leader\n- Ship the new onboarding flow"
+              "One goal per line, e.g.:\nImprove system reliability\nGrow as a technical leader\nShip the new onboarding flow"
             }
             value={goals}
             onChange={(e) => setGoals(e.target.value)}
@@ -492,8 +492,8 @@ yarn normalize --input raw.json --output evidence.json`}
             spellCheck={false}
           />
           <p className="generate-hint">
-            Goals are used as context to align themes, bullets, and stories to
-            what matters most to you.
+            Enter one goal per line. Goals are used as context to align themes,
+            bullets, and stories to what matters most to you.
           </p>
         </div>
 

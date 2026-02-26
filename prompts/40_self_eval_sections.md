@@ -3,7 +3,7 @@ TASK: Draft self-evaluation sections aligned to typical HR forms.
 INPUT JSON:
 {
   "timeframe": {...},
-  "goals": "optional free-text annual goals",
+  "goals": "optional annual goals, one per line",
   "role_context_optional": {...},
   "themes": [...],
   "top_10_bullets_overall": [...],
