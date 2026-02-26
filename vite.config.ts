@@ -104,6 +104,8 @@ function apiRoutesPlugin() {
           getAuthRedirectUrl,
           respondJson,
           randomState,
+          log: (event, detail) =>
+            console.error("[auth]", event, detail ? String(detail) : ""),
         })
       );
 

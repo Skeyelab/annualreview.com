@@ -131,7 +131,7 @@ describe("auth", () => {
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/generate?error=auth_failed" });
       expect(deps.createSession).not.toHaveBeenCalled();
     });
 
@@ -147,7 +147,7 @@ describe("auth", () => {
         sessionSecret: secret,
       };
       await handleCallback(req, res, deps);
-      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/?error=auth_failed" });
+      expect(res.writeHead).toHaveBeenCalledWith(302, { Location: "/generate?error=auth_failed" });
     });
   });
 

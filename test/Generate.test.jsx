@@ -35,6 +35,8 @@ describe("Generate", () => {
     expect(screen.getByPlaceholderText(/timeframe.*contributions/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate review/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /sign in with github/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /paste a personal access token/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /use the terminal/i })).toBeInTheDocument();
   });
 
   it("Try sample loads sample JSON into textarea", async () => {
@@ -74,6 +76,7 @@ describe("Generate", () => {
   it("Fetch my data: prompts for token when empty", async () => {
     render(<Generate />);
     await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/me", expect.any(Object)));
+    fireEvent.click(screen.getByRole("tab", { name: /paste a personal access token/i }));
     fireEvent.click(screen.getByRole("button", { name: /fetch my data/i }));
     await waitFor(() => {
       expect(screen.getByText(/paste your github token above/i)).toBeInTheDocument();
@@ -91,6 +94,7 @@ describe("Generate", () => {
       .mockResolvedValueOnce(mockRes({ job_id: "j1" }, true, 202))
       .mockResolvedValueOnce(mockRes({ status: "done", result: evidence }));
     render(<Generate />);
+    fireEvent.click(screen.getByRole("tab", { name: /paste a personal access token/i }));
     const tokenInput = screen.getByPlaceholderText(/paste your github token/i);
     fireEvent.change(tokenInput, { target: { value: "ghp_test" } });
     fireEvent.click(screen.getByRole("button", { name: /fetch my data/i }));
@@ -113,6 +117,7 @@ describe("Generate", () => {
       .mockResolvedValueOnce(mockRes({}, false, 401))
       .mockResolvedValueOnce(mockRes({ error: "Invalid token" }, false));
     render(<Generate />);
+    fireEvent.click(screen.getByRole("tab", { name: /paste a personal access token/i }));
     fireEvent.change(screen.getByPlaceholderText(/paste your github token/i), { target: { value: "ghp_bad" } });
     fireEvent.click(screen.getByRole("button", { name: /fetch my data/i }));
     await waitFor(() => {
@@ -120,7 +125,7 @@ describe("Generate", () => {
     });
   });
 
-  it("when signed in shows Signed in as login and Fetch my data without token input", async () => {
+  it("when signed in shows Signed in as login and Fetch my data on first tab", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(mockRes({ login: "alice", scope: "read:user" }))
       .mockResolvedValueOnce(mockRes({ latest: null }));
@@ -129,7 +134,7 @@ describe("Generate", () => {
       expect(screen.getByText("alice")).toBeInTheDocument();
     });
     expect(screen.getByText(/signed in as/i)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/paste your github token/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /fetch your data/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /fetch my data/i })).toBeInTheDocument();
   });
 });

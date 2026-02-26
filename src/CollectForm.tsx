@@ -1,5 +1,42 @@
 import React, { type ReactNode } from "react";
 
+export interface CollectDateRangeProps {
+  startDate: string;
+  endDate: string;
+  onStartChange: (value: string) => void;
+  onEndChange: (value: string) => void;
+}
+
+export function CollectDateRange({
+  startDate,
+  endDate,
+  onStartChange,
+  onEndChange,
+}: CollectDateRangeProps) {
+  return (
+    <div className="generate-collect-dates">
+      <label className="generate-collect-label">
+        From{" "}
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => onStartChange(e.target.value)}
+          className="generate-collect-date"
+        />
+      </label>
+      <label className="generate-collect-label">
+        To{" "}
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => onEndChange(e.target.value)}
+          className="generate-collect-date"
+        />
+      </label>
+    </div>
+  );
+}
+
 interface CollectFormProps {
   startDate: string;
   endDate: string;
@@ -28,26 +65,12 @@ export default function CollectForm({
   return (
     <div className="generate-collect-form">
       {children}
-      <div className="generate-collect-dates">
-        <label className="generate-collect-label">
-          From{" "}
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => onStartChange(e.target.value)}
-            className="generate-collect-date"
-          />
-        </label>
-        <label className="generate-collect-label">
-          To{" "}
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => onEndChange(e.target.value)}
-            className="generate-collect-date"
-          />
-        </label>
-      </div>
+      <CollectDateRange
+        startDate={startDate}
+        endDate={endDate}
+        onStartChange={onStartChange}
+        onEndChange={onEndChange}
+      />
       {error && <p className="generate-error">{error}</p>}
       {progress && <p className="generate-progress">{progress}</p>}
       <button
