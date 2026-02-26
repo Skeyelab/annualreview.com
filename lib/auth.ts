@@ -121,7 +121,7 @@ export async function handleCallback(
   const fail = (reason: string) => {
     log("auth_callback_fail", reason);
     deps.clearStateCookie(res);
-    res.writeHead(302, { Location: "/?error=auth_failed" });
+    res.writeHead(302, { Location: "/generate?error=auth_failed" });
     res.end();
   };
 

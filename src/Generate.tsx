@@ -35,7 +35,17 @@ export default function Generate() {
     setError(null);
   }, []);
 
-  const [dataTab, setDataTab] = useState("app");
+  const [dataTab, setDataTab] = useState<"app" | "token" | "terminal">("app");
+  const [authError, setAuthError] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "auth_failed") {
+      setAuthError(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   const {
     collectStart,
     setCollectStart,
@@ -211,6 +221,19 @@ export default function Generate() {
       <main className="generate-main">
         <h1 className="generate-title">Generate review</h1>
 
+        {authError && (
+          <div className="generate-error" role="alert">
+            GitHub sign-in didn’t complete. For local dev, add this callback URL
+            to your GitHub OAuth app:{" "}
+            <code>
+              {typeof window !== "undefined"
+                ? `${window.location.origin}/api/auth/callback/github`
+                : "http://localhost:5173/api/auth/callback/github"}
+            </code>{" "}
+            Then try again. Check the terminal for the failure reason.
+          </div>
+        )}
+
         <section
           className="generate-get-data"
           aria-labelledby="get-data-heading"
@@ -234,6 +257,17 @@ export default function Generate() {
               onClick={() => setDataTab("app")}
             >
               {authChecked && user ? "Fetch your data" : "Sign in with GitHub"}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dataTab === "token"}
+              aria-controls="get-data-token-panel"
+              id="get-data-token-tab"
+              className={`generate-get-data-tab ${dataTab === "token" ? "generate-get-data-tab-active" : ""}`}
+              onClick={() => setDataTab("token")}
+            >
+              Paste a Personal Access Token
             </button>
             <button
               type="button"
@@ -305,34 +339,47 @@ export default function Generate() {
                       Connect (include private repos)
                     </a>
                   </div>
-                  <p className="generate-option-desc generate-or">
-                    Or paste a Personal Access Token:
-                  </p>
-                  <CollectForm
-                    startDate={collectStart}
-                    endDate={collectEnd}
-                    onStartChange={setCollectStart}
-                    onEndChange={setCollectEnd}
-                    error={collectError}
-                    progress={collectProgress}
-                    loading={collectLoading}
-                    onSubmit={() => handleFetchGitHub(null)}
-                    submitLabel="Fetch my data"
-                  >
-                    <input
-                      type="password"
-                      placeholder="Paste your GitHub token (ghp_... or gho_...)"
-                      value={collectToken}
-                      onChange={(e) => {
-                        setCollectToken(e.target.value);
-                        setCollectError(null);
-                      }}
-                      className="generate-collect-input"
-                      autoComplete="off"
-                    />
-                  </CollectForm>
                 </>
               )}
+            </div>
+
+            <div
+              id="get-data-token-panel"
+              role="tabpanel"
+              aria-labelledby="get-data-token-tab"
+              hidden={dataTab !== "token"}
+              className="generate-option-card"
+            >
+              <h3 className="generate-option-heading">
+                Paste a Personal Access Token
+              </h3>
+              <p className="generate-option-desc">
+                Fetch your PRs and reviews for the date range. Your token is not
+                stored.
+              </p>
+              <CollectForm
+                startDate={collectStart}
+                endDate={collectEnd}
+                onStartChange={setCollectStart}
+                onEndChange={setCollectEnd}
+                error={collectError}
+                progress={collectProgress}
+                loading={collectLoading}
+                onSubmit={() => handleFetchGitHub(null)}
+                submitLabel="Fetch my data"
+              >
+                <input
+                  type="password"
+                  placeholder="Paste your GitHub token (ghp_... or gho_...)"
+                  value={collectToken}
+                  onChange={(e) => {
+                    setCollectToken(e.target.value);
+                    setCollectError(null);
+                  }}
+                  className="generate-collect-input"
+                  autoComplete="off"
+                />
+              </CollectForm>
             </div>
 
             <div
