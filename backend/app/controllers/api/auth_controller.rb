@@ -12,7 +12,8 @@ module Api
         token: auth.credentials.token
       )
       session[:user_id] = user.id
-      redirect_to "/generate", allow_other_host: true
+      base = ENV["FRONTEND_URL"].presence
+      redirect_to base ? "#{base.sub(%r{/$}, '')}/generate" : "/generate", allow_other_host: true
     end
 
     def me

@@ -16,5 +16,6 @@ class CollectJob < ApplicationJob
     review_year.evidence = evidence
     review_year.evidence_updated_at = Time.current
     review_year.save!
+    Rails.cache.write("job:#{job_id}", { status: "done", result: evidence }, expires_in: 1.hour)
   end
 end

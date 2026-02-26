@@ -150,7 +150,18 @@ function apiRoutesPlugin() {
   };
 }
 
+const useRailsBackend = process.env.USE_RAILS_BACKEND === "true";
+const railsOrigin = process.env.RAILS_ORIGIN || "http://localhost:3000";
+
 export default defineConfig({
-  plugins: [react(), apiRoutesPlugin()],
-  envPrefix: ["VITE_", "POSTHOG"],
+  plugins: [react(), ...(useRailsBackend ? [] : [apiRoutesPlugin()])],
+  envPrefix: ["VITE_", "POSTHOG", "USE_RAILS_BACKEND", "RAILS_ORIGIN"],
+  server: useRailsBackend
+    ? {
+        proxy: {
+          "/api": { target: railsOrigin, changeOrigin: true },
+          "/auth": { target: railsOrigin, changeOrigin: true },
+        },
+      }
+    : undefined,
 });

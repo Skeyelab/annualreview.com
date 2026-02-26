@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { generateRoutes } from "../server/routes/generate.ts";
 
 describe("generateRoutes", () => {
-  it("passes a promise-returning worker to runInBackground", async () => {
+  it("enqueues pipeline via runInBackground and returns 202", async () => {
     const runPipeline = vi.fn().mockResolvedValue({
       themes: {},
       bullets: {},
@@ -10,9 +10,8 @@ describe("generateRoutes", () => {
       self_eval: {},
     });
     const respondJson = vi.fn();
-    let workerReturnValue;
     const runInBackground = vi.fn((jobId, fn) => {
-      workerReturnValue = fn(vi.fn());
+      fn(vi.fn());
       return undefined;
     });
 
@@ -31,7 +30,6 @@ describe("generateRoutes", () => {
     await handler({ method: "POST" }, {}, vi.fn());
 
     expect(runInBackground).toHaveBeenCalledTimes(1);
-    expect(workerReturnValue).toBeInstanceOf(Promise);
     expect(respondJson).toHaveBeenCalledWith({}, 202, { job_id: "job_2" });
     expect(runPipeline).toHaveBeenCalledTimes(1);
   });

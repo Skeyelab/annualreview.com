@@ -16,6 +16,21 @@ This repo contains:
    - `prompts/30_star_stories.md`
    - `prompts/40_self_eval_sections.md`
 
+## Development with Foreman (Rails backend)
+
+To run the full stack (Rails API + Vite frontend + Solid Queue worker) with one command:
+
+```bash
+foreman start
+```
+
+- **Rails API** → http://localhost:3000  
+- **Vite (React)** → http://localhost:5173 — open this in the browser; it proxies `/api` and `/auth` to Rails.
+
+**Before first run:** In the repo root, `cd backend && bundle install && bin/rails db:prepare`. Copy `.env` (or create it) with `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `OPENAI_API_KEY`. For GitHub OAuth with Foreman, add **Authorization callback URL** `http://localhost:5173/auth/github/callback` to your GitHub OAuth app so the redirect goes through Vite to Rails.
+
+**Without Foreman:** Run only the frontend with `yarn dev` — the dev server uses the in-process Node API. Run only Rails with `cd backend && bin/rails server -p 3000`.
+
 ## How to get the data to paste
 
 **Quick path:** [docs/how-to-get-evidence.md](docs/how-to-get-evidence.md) — create a GitHub token, run collect + normalize, then paste or upload **evidence.json** on the Generate page.

@@ -2,13 +2,15 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   namespace :api do
-    get  "auth/github",          to: "auth#github"
-    get  "auth/github/callback", to: "auth#callback"
-    get  "auth/me",              to: "auth#me"
-    delete "auth/logout",        to: "auth#logout"
+    get    "auth/github",          to: "auth#github"
+    get    "auth/github/callback", to: "auth#callback"
+    get    "auth/me",              to: "auth#me"
+    delete "auth/logout",          to: "auth#logout"
+    post   "auth/logout",          to: "auth#logout"
 
     post "collect",  to: "collect#create"
     post "generate", to: "generate#create"
+    get  "jobs/:id", to: "jobs#show"
 
     scope "users/me" do
       get    "years",              to: "review_years#index"

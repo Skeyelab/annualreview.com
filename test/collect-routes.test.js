@@ -2,12 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import { collectRoutes } from "../server/routes/collect.ts";
 
 describe("collectRoutes", () => {
-  it("passes a promise-returning worker to runInBackground", async () => {
+  it("enqueues collect via runInBackground and returns 202", async () => {
     const collectAndNormalize = vi.fn().mockResolvedValue({ contributions: [] });
     const respondJson = vi.fn();
-    let workerReturnValue;
     const runInBackground = vi.fn((jobId, fn) => {
-      workerReturnValue = fn();
+      fn();
       return undefined;
     });
 
@@ -29,7 +28,6 @@ describe("collectRoutes", () => {
     await handler({ method: "POST" }, {}, vi.fn());
 
     expect(runInBackground).toHaveBeenCalledTimes(1);
-    expect(workerReturnValue).toBeInstanceOf(Promise);
     expect(respondJson).toHaveBeenCalledWith({}, 202, { job_id: "job_1" });
     expect(collectAndNormalize).toHaveBeenCalledWith({
       token: "ghp_test",

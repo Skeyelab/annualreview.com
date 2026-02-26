@@ -1,0 +1,57 @@
+# Coolify / Docker Compose: Rails API + frontend (nginx + SPA) + Solid Queue worker.
+# In Coolify: assign a domain to the `frontend` service; Coolify will set SERVICE_URL_FRONTEND
+# (see https://coolify.io/docs/knowledge-base/docker/compose#coolifys-magic-environment-variables).
+# Ports: frontend listens on 80 so no port suffix needed. If a service used another port you would
+# use SERVICE_URL_<NAME>_<PORT>; identifiers with ports must use hyphens not underscores
+# (e.g. SERVICE_URL_MY-SERVICE_3000 not SERVICE_URL_MY_SERVICE_3000).
+# Set in Coolify (or .env): RAILS_MASTER_KEY, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, OPENAI_API_KEY.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.compose
+    environment:
+      RAILS_ENV: production
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
+      # Coolify magic: SERVICE_URL_FRONTEND is generated when you assign a domain to frontend
+      FRONTEND_URL: ${SERVICE_URL_FRONTEND:-${FRONTEND_URL:-}}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - backend_storage:/rails/storage
+    restart: unless-stopped
+    # Internal only; frontend proxies to this.
+    expose:
+      - "80"
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.compose
+    command: ["./bin/jobs"]
+    environment:
+      RAILS_ENV: production
+      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - backend_storage:/rails/storage
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_storage:

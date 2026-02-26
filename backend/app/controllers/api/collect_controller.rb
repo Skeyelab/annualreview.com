@@ -13,7 +13,9 @@ module Api
       end
 
       job = CollectJob.perform_later(current_user.id, start_date, end_date)
-      render json: { job_id: job.provider_job_id || job.job_id }, status: :accepted
+      jid = job.provider_job_id || job.job_id
+      Rails.cache.write("job:#{jid}", { status: "pending" }, expires_in: 1.hour)
+      render json: { job_id: jid }, status: :accepted
     end
   end
 end

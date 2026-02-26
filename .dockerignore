@@ -1,0 +1,13 @@
+# Used by Docker Compose builds (frontend and backend from root context).
+.git
+.env
+.env.*
+*.log
+node_modules
+dist
+backend/log/*
+backend/tmp/*
+backend/storage/*
+backend/.git
+backend/node_modules
+backend/config/master.key
