@@ -75,9 +75,9 @@ export function collectRoutes(options: CollectRoutesOptions) {
         return;
       }
       const jobId = createJob("collect", sessionId ?? undefined);
-      runInBackground(jobId, () => {
-        void collectAndNormalize({ token, start_date, end_date });
-      });
+      runInBackground(jobId, () =>
+        collectAndNormalize({ token, start_date, end_date })
+      );
       respondJson(res, 202, { job_id: jobId });
     } catch (e) {
       const err = e as Error;

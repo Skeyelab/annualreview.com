@@ -58,12 +58,12 @@ export function generateRoutes(options: GenerateRoutesOptions) {
         return;
       }
       const jobId = createJob("generate");
-      runInBackground(jobId, (report) => {
-        void runPipeline(evidence as Evidence, {
+      runInBackground(jobId, (report) =>
+        runPipeline(evidence as Evidence, {
           onProgress: ({ stepIndex, total, label }) =>
             report({ progress: `${stepIndex}/${total} ${label}` }),
-        });
-      });
+        })
+      );
       respondJson(res, 202, { job_id: jobId });
     } catch (e) {
       const err = e as Error;
