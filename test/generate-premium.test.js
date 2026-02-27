@@ -24,6 +24,7 @@ const validEvidence = {
   contributions: [],
 };
 
+/** Build default options (not logged in). */
 function makeOptions(overrides = {}) {
   const runPipeline = vi.fn().mockResolvedValue({ themes: {}, bullets: {}, stories: {}, self_eval: {} });
   const createJob = vi.fn().mockReturnValue("job-1");
@@ -36,14 +37,25 @@ function makeOptions(overrides = {}) {
     runInBackground,
     runPipeline,
     getStripe: () => null,
+    getSessionIdFromRequest: vi.fn().mockReturnValue(null),
+    getSession: vi.fn().mockReturnValue(undefined),
     ...overrides,
   };
+}
+
+/** Build options with a logged-in user. */
+function makeOptionsLoggedIn(login, overrides = {}) {
+  return makeOptions({
+    getSessionIdFromRequest: vi.fn().mockReturnValue("sess_test"),
+    getSession: vi.fn().mockReturnValue({ login, access_token: "tok", created_at: "2025-01-01" }),
+    ...overrides,
+  });
 }
 
 describe("generateRoutes – premium flag", () => {
   beforeEach(() => clearCreditStore());
 
-  it("runs free pipeline when no stripe_session_id", async () => {
+  it("runs free pipeline when no stripe_session_id and no _premium flag", async () => {
     const opts = makeOptions();
     const handler = generateRoutes(opts);
     const req = { method: "POST", url: "/" };
@@ -58,8 +70,21 @@ describe("generateRoutes – premium flag", () => {
     expect(res.body).not.toHaveProperty("credits_remaining");
   });
 
-  it("returns 402 when stripe_session_id is provided but session not paid", async () => {
+  it("returns 401 when requesting premium but not logged in", async () => {
     const opts = makeOptions({
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_test" }),
+    });
+    const handler = generateRoutes(opts);
+    const req = { method: "POST", url: "/" };
+    const res = mockRes();
+    await handler(req, res, () => {});
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/login required/i);
+    expect(opts.runPipeline).not.toHaveBeenCalled();
+  });
+
+  it("returns 402 when stripe_session_id provided but session not paid", async () => {
+    const opts = makeOptionsLoggedIn("alice", {
       readJsonBody: vi.fn().mockResolvedValue({
         ...validEvidence,
         _stripe_session_id: "cs_unpaid",
@@ -67,7 +92,11 @@ describe("generateRoutes – premium flag", () => {
       getStripe: () => ({
         checkout: {
           sessions: {
-            retrieve: vi.fn().mockResolvedValue({ payment_status: "unpaid", id: "cs_unpaid" }),
+            retrieve: vi.fn().mockResolvedValue({
+              payment_status: "unpaid",
+              id: "cs_unpaid",
+              metadata: { user_login: "alice" },
+            }),
           },
         },
       }),
@@ -81,12 +110,12 @@ describe("generateRoutes – premium flag", () => {
     expect(opts.runPipeline).not.toHaveBeenCalled();
   });
 
-  it("runs premium pipeline and deducts one credit when session has credits", async () => {
-    awardCredits("cs_with_credits"); // awards CREDITS_PER_PURCHASE (default 5)
-    const opts = makeOptions({
+  it("runs premium pipeline and deducts one credit when user has credits", async () => {
+    awardCredits("alice", "cs_prev_purchase"); // award 5 credits to alice
+    const opts = makeOptionsLoggedIn("alice", {
       readJsonBody: vi.fn().mockResolvedValue({
         ...validEvidence,
-        _stripe_session_id: "cs_with_credits",
+        _stripe_session_id: "cs_prev_purchase", // already in credit_events — fast path
       }),
     });
     const handler = generateRoutes(opts);
@@ -99,24 +128,38 @@ describe("generateRoutes – premium flag", () => {
       expect.objectContaining({ premium: true })
     );
     expect(res.body).toMatchObject({ job_id: "job-1", premium: true });
-    // One credit deducted from 5 → 4 remaining
+    // 5 awarded, 1 deducted → 4 remaining
     expect(res.body.credits_remaining).toBe(4);
-    expect(getCredits("cs_with_credits")).toBe(4);
+    expect(getCredits("alice")).toBe(4);
   });
 
-  it("runs premium pipeline when stripe session is verified as paid via API (awards then deducts)", async () => {
+  it("runs premium pipeline via _premium flag (no session ID needed for repeat use)", async () => {
+    awardCredits("bob", "cs_bob_purchase");
+    const opts = makeOptionsLoggedIn("bob", {
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _premium: true }),
+    });
+    const handler = generateRoutes(opts);
+    const req = { method: "POST", url: "/" };
+    const res = mockRes();
+    await handler(req, res, () => {});
+    expect(opts.createJob).toHaveBeenCalledWith("generate-premium");
+    expect(res.body.credits_remaining).toBe(4);
+  });
+
+  it("verifies Stripe inline (webhook not yet fired) and awards credits to correct user", async () => {
     const mockStripe = {
       checkout: {
         sessions: {
-          retrieve: vi.fn().mockResolvedValue({ payment_status: "paid", id: "cs_stripe_paid" }),
+          retrieve: vi.fn().mockResolvedValue({
+            payment_status: "paid",
+            id: "cs_new",
+            metadata: { user_login: "carol" },
+          }),
         },
       },
     };
-    const opts = makeOptions({
-      readJsonBody: vi.fn().mockResolvedValue({
-        ...validEvidence,
-        _stripe_session_id: "cs_stripe_paid",
-      }),
+    const opts = makeOptionsLoggedIn("carol", {
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_new" }),
       getStripe: () => mockStripe,
     });
     const handler = generateRoutes(opts);
@@ -124,57 +167,69 @@ describe("generateRoutes – premium flag", () => {
     const res = mockRes();
     await handler(req, res, () => {});
     expect(opts.createJob).toHaveBeenCalledWith("generate-premium");
-    expect(opts.runPipeline).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ premium: true })
-    );
     // 5 awarded, 1 deducted → 4 remaining
     expect(res.body.credits_remaining).toBe(4);
   });
 
-  it("returns 402 when credits are exhausted", async () => {
-    // Award and exhaust all credits
-    awardCredits("cs_exhausted");
-    for (let i = 0; i < 5; i++) {
-      const opts = makeOptions({
-        readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_exhausted" }),
-      });
-      const res = mockRes();
-      await generateRoutes(opts)({ method: "POST", url: "/" }, res, () => {});
-    }
-    // Now out of credits — next call should 402
-    const opts = makeOptions({
-      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_exhausted" }),
-      getStripe: () => ({
-        checkout: {
-          sessions: {
-            retrieve: vi.fn().mockResolvedValue({ payment_status: "unpaid", id: "cs_exhausted" }),
-          },
+  it("rejects inline Stripe verify when metadata user_login does not match logged-in user", async () => {
+    const mockStripe = {
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockResolvedValue({
+            payment_status: "paid",
+            id: "cs_other_user",
+            metadata: { user_login: "eve" }, // different user!
+          }),
         },
-      }),
-    });
-    const res = mockRes();
-    await generateRoutes(opts)({ method: "POST", url: "/" }, res, () => {});
-    expect(res.statusCode).toBe(402);
-  });
-
-  it("strips _stripe_session_id from evidence before validation and pipeline", async () => {
-    awardCredits("cs_strip_test");
-    let capturedEvidence = null;
-    const opts = makeOptions({
-      readJsonBody: vi.fn().mockResolvedValue({
-        ...validEvidence,
-        _stripe_session_id: "cs_strip_test",
-      }),
-      runPipeline: vi.fn((ev, _opts) => {
-        capturedEvidence = ev;
-        return Promise.resolve({ themes: {}, bullets: {}, stories: {}, self_eval: {} });
-      }),
+      },
+    };
+    const opts = makeOptionsLoggedIn("dave", {
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_other_user" }),
+      getStripe: () => mockStripe,
     });
     const handler = generateRoutes(opts);
     const req = { method: "POST", url: "/" };
     const res = mockRes();
     await handler(req, res, () => {});
+    expect(res.statusCode).toBe(402);
+    expect(opts.runPipeline).not.toHaveBeenCalled();
+  });
+
+  it("returns 402 when all credits are exhausted", async () => {
+    awardCredits("fiona", "cs_fiona");
+    // Use all 5 credits
+    for (let i = 0; i < 5; i++) {
+      const res = mockRes();
+      await generateRoutes(makeOptionsLoggedIn("fiona", {
+        readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _premium: true }),
+      }))({ method: "POST", url: "/" }, res, () => {});
+      expect(res.statusCode).toBe(202);
+    }
+    // Now out of credits; getStripe returns null so inline verify fails → 402
+    const res = mockRes();
+    await generateRoutes(makeOptionsLoggedIn("fiona", {
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _premium: true }),
+    }))({ method: "POST", url: "/" }, res, () => {});
+    expect(res.statusCode).toBe(402);
+    expect(res.body.error).toMatch(/no premium credits/i);
+  });
+
+  it("strips _stripe_session_id and _premium from evidence before pipeline", async () => {
+    awardCredits("grace", "cs_grace");
+    let capturedEvidence = null;
+    const opts = makeOptionsLoggedIn("grace", {
+      readJsonBody: vi.fn().mockResolvedValue({
+        ...validEvidence,
+        _stripe_session_id: "cs_grace",
+        _premium: true,
+      }),
+      runPipeline: vi.fn((ev) => {
+        capturedEvidence = ev;
+        return Promise.resolve({ themes: {}, bullets: {}, stories: {}, self_eval: {} });
+      }),
+    });
+    await generateRoutes(opts)({ method: "POST", url: "/" }, mockRes(), () => {});
     expect(capturedEvidence).not.toHaveProperty("_stripe_session_id");
+    expect(capturedEvidence).not.toHaveProperty("_premium");
   });
 });

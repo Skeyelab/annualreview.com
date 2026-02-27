@@ -9,11 +9,15 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "http";
+import type { SessionData } from "../../lib/session-store.js";
 import Stripe from "stripe";
 import { awardCredits, getCredits, CREDITS_PER_PURCHASE } from "../../lib/payment-store.js";
+
 export interface PaymentsRoutesOptions {
   respondJson: (res: ServerResponse, status: number, data: object) => void;
   getStripe?: () => Stripe | null;
+  getSessionIdFromRequest: (req: IncomingMessage) => string | null;
+  getSession: (id: string) => SessionData | undefined;
 }
 
 type Next = () => void;
@@ -35,7 +39,7 @@ function getStripeClient(): Stripe | null {
 }
 
 export function paymentsRoutes(options: PaymentsRoutesOptions) {
-  const { respondJson, getStripe = getStripeClient } = options;
+  const { respondJson, getStripe = getStripeClient, getSessionIdFromRequest, getSession } = options;
 
   return async function paymentsMiddleware(
     req: IncomingMessage,
@@ -54,10 +58,15 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
       return;
     }
 
-    // GET /credits/:sessionId – returns remaining credits for a Stripe session
-    if (path.startsWith("credits/") && req.method === "GET") {
-      const sessionId = decodeURIComponent(path.slice("credits/".length));
-      respondJson(res, 200, { credits: getCredits(sessionId) });
+    // GET /credits – returns remaining credits for the logged-in user
+    if (path === "credits" && req.method === "GET") {
+      const sessId = getSessionIdFromRequest(req);
+      const userSession = sessId ? getSession(sessId) : undefined;
+      if (!userSession?.login) {
+        respondJson(res, 401, { error: "Login required" });
+        return;
+      }
+      respondJson(res, 200, { credits: getCredits(userSession.login) });
       return;
     }
     if (path === "checkout" && req.method === "POST") {
@@ -66,6 +75,14 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
         respondJson(res, 503, { error: "Payments not configured (STRIPE_SECRET_KEY missing)" });
         return;
       }
+      // Require the user to be logged in before purchasing credits
+      const sessId = getSessionIdFromRequest(req);
+      const userSession = sessId ? getSession(sessId) : undefined;
+      if (!userSession?.login) {
+        respondJson(res, 401, { error: "Login required to purchase premium credits" });
+        return;
+      }
+      const userLogin = userSession.login;
       try {
         const rawBody = await readRawBody(req);
         const body = JSON.parse(rawBody.toString() || "{}") as {
@@ -83,6 +100,7 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
 
         const session = await stripe.checkout.sessions.create({
           mode: "payment",
+          metadata: { user_login: userLogin },
           line_items: [
             {
               quantity: 1,
@@ -91,7 +109,7 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
                 unit_amount: priceCents,
                 product_data: {
                   name: "Premium Annual Review Report",
-                  description: "Higher-quality AI report using a state-of-the-art model",
+                  description: `${CREDITS_PER_PURCHASE} higher-quality AI report runs using a state-of-the-art model`,
                 },
               },
             },
@@ -125,8 +143,11 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
         const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
         if (event.type === "checkout.session.completed") {
           const session = event.data.object as Stripe.Checkout.Session;
-          if (session.payment_status === "paid" && session.id) {
-            awardCredits(session.id);
+          // Award credits to the GitHub user who initiated the checkout.
+          // user_login is stored in metadata when creating the checkout session.
+          const userLogin = session.metadata?.user_login;
+          if (session.payment_status === "paid" && userLogin) {
+            awardCredits(userLogin, session.id);
           }
         }
         respondJson(res, 200, { received: true });

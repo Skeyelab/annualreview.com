@@ -1,6 +1,13 @@
 /**
  * Generate API: POST / - validate evidence, create job, run pipeline in background.
- * Supports an optional _stripe_session_id field for premium (higher-quality) generation.
+ *
+ * Premium generation ($1 for 5 credits, stored in SQLite):
+ *   - The user must be logged in (GitHub OAuth) to use premium.
+ *   - On the post-Stripe-redirect call, the client passes _stripe_session_id so
+ *     the server can verify payment and award credits if the webhook hasn't fired yet.
+ *   - Subsequent premium calls just send { _premium: true } — no Stripe call needed.
+ *   - Each premium generation deducts one credit from the user's account.
+ *
  * Returns Connect-style middleware (req, res, next).
  */
 
@@ -8,6 +15,7 @@ import type { IncomingMessage, ServerResponse } from "http";
 import type { ValidationResult } from "../../lib/validate-evidence.js";
 import type { Evidence } from "../../types/evidence.js";
 import type { PipelineResult } from "../../lib/run-pipeline.js";
+import type { SessionData } from "../../lib/session-store.js";
 import { awardCredits, deductCredit, getCredits } from "../../lib/payment-store.js";
 import Stripe from "stripe";
 
@@ -24,6 +32,8 @@ export interface GenerateRoutesOptions {
     evidence: Evidence,
     opts: { onProgress: (data: { stepIndex: number; total: number; label: string }) => void; premium?: boolean }
   ) => Promise<PipelineResult>;
+  getSessionIdFromRequest: (req: IncomingMessage) => string | null;
+  getSession: (id: string) => SessionData | undefined;
   /** Optional injected Stripe client (for tests). */
   getStripe?: () => Stripe | null;
 }
@@ -35,14 +45,24 @@ function defaultGetStripe(): Stripe | null {
   return key ? new Stripe(key) : null;
 }
 
-/** Verify a Stripe Checkout session is paid, awarding credits if not already credited. Returns true on success. */
-async function verifyStripeSession(sessionId: string, getStripe: () => Stripe | null): Promise<boolean> {
+/**
+ * Verify a Stripe Checkout session is paid and belongs to the expected user.
+ * Awards credits to the user if not already credited (idempotent via DB).
+ */
+async function verifyAndAwardFromStripe(
+  stripeSessionId: string,
+  expectedUserLogin: string,
+  getStripe: () => Stripe | null
+): Promise<boolean> {
   const stripe = getStripe();
   if (!stripe) return false;
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status === "paid") {
-      awardCredits(sessionId); // idempotent — won't double-credit
+    const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+    if (
+      session.payment_status === "paid" &&
+      session.metadata?.user_login === expectedUserLogin
+    ) {
+      awardCredits(expectedUserLogin, stripeSessionId);
       return true;
     }
   } catch {
@@ -59,6 +79,8 @@ export function generateRoutes(options: GenerateRoutesOptions) {
     createJob,
     runInBackground,
     runPipeline,
+    getSessionIdFromRequest,
+    getSession,
     getStripe = defaultGetStripe,
   } = options;
 
@@ -74,8 +96,14 @@ export function generateRoutes(options: GenerateRoutesOptions) {
     try {
       const body = await readJsonBody(req);
 
-      const { _stripe_session_id: rawSessionId, ...evidence } = body as Record<string, unknown>;
+      // Strip internal payment fields before evidence validation
+      const {
+        _stripe_session_id: rawSessionId,
+        _premium: rawPremium,
+        ...evidence
+      } = body as Record<string, unknown>;
       const stripeSessionId = typeof rawSessionId === "string" ? rawSessionId : undefined;
+      const wantsPremium = !!rawPremium || !!stripeSessionId;
 
       const validation = validateEvidence(evidence);
       if (!validation.valid) {
@@ -89,27 +117,39 @@ export function generateRoutes(options: GenerateRoutesOptions) {
         return;
       }
 
-      // Verify payment / deduct credit if a Stripe session ID was provided
+      // --- Premium credit check ---
       let premium = false;
       let creditsRemaining: number | undefined;
-      if (stripeSessionId) {
-        // Fast path: session already has credits awarded (e.g. webhook already fired).
-        let debited = deductCredit(stripeSessionId);
-        if (!debited) {
-          // Slow path: no credits yet — verify with Stripe (also awards credits if paid).
-          const verified = await verifyStripeSession(stripeSessionId, getStripe);
-          if (!verified) {
+
+      if (wantsPremium) {
+        // Must be logged in — credits are tied to a GitHub account
+        const sessId = getSessionIdFromRequest(req);
+        const userSession = sessId ? getSession(sessId) : undefined;
+        if (!userSession?.login) {
+          respondJson(res, 401, { error: "Login required for premium generation" });
+          return;
+        }
+        const userLogin = userSession.login;
+
+        // Fast path: user already has credits in the DB
+        let debited = deductCredit(userLogin);
+
+        if (!debited && stripeSessionId) {
+          // Slow path: webhook may not have fired yet — verify directly with Stripe
+          const awarded = await verifyAndAwardFromStripe(stripeSessionId, userLogin, getStripe);
+          if (!awarded) {
             respondJson(res, 402, { error: "Payment required or session not found" });
             return;
           }
-          debited = deductCredit(stripeSessionId);
+          debited = deductCredit(userLogin);
         }
+
         if (!debited) {
           respondJson(res, 402, { error: "No premium credits remaining" });
           return;
         }
         premium = true;
-        creditsRemaining = getCredits(stripeSessionId);
+        creditsRemaining = getCredits(userLogin);
       }
 
       const jobId = createJob(premium ? "generate-premium" : "generate");
