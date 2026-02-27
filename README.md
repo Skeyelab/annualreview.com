@@ -1,47 +1,89 @@
 # AnnualReview.dev
 
-Turn GitHub contributions into an evidence-backed annual review. **https://annualreview.dev**
+Turn your GitHub activity into an evidence-backed annual review in minutes. **https://annualreview.dev**
 
-This repo contains:
-- `PRD.md` — one-page product requirements doc
-- `prompts/` — Cursor-ready prompt templates for a GitHub→story pipeline
-- `AGENTS.md` — suggested agent workflow and guardrails
+Sign in with GitHub (or use a token), pick your date range, and get themes, impact bullets, STAR stories, and self-eval sections — every claim linked to a real PR.
 
-## Suggested pipeline
-1) Import GitHub evidence (PRs, reviews, releases) into a structured JSON payload.
-2) Run prompts in order:
-   - `prompts/00_system.md` (as system)
-   - `prompts/10_theme_cluster.md`
-   - `prompts/20_impact_bullets.md`
-   - `prompts/30_star_stories.md`
-   - `prompts/40_self_eval_sections.md`
+## What you get
 
-## How to get the data to paste
+| Output | Description |
+|--------|-------------|
+| **Theme clusters** | Your scattered PRs distilled into 4–6 strategic themes a manager actually remembers. |
+| **Impact bullets** | XYZ-format bullets with scope, outcome, and a link to the PR that proves it. |
+| **STAR stories** | Ready-to-paste Situation/Task/Action/Result narratives for promotion packets. |
+| **Self-eval sections** | Draft self-eval sections for review forms — every claim linked to a PR. |
 
-**Quick path:** [docs/how-to-get-evidence.md](docs/how-to-get-evidence.md) — create a GitHub token, run collect + normalize, then paste or upload **evidence.json** on the Generate page.
+## Quickstart (web app)
 
-## Production (Coolify / Node)
+1. Go to **https://annualreview.dev/generate**
+2. Click **Connect GitHub** (public or private repos) — or paste a Personal Access Token.
+3. Set your review date range and click **Fetch my data**.
+4. Optionally add your annual goals so the report is tailored to what you're being measured on.
+5. Click **Generate review** → copy sections or download as Markdown.
 
-The app needs a Node server in production so `/api/auth/*` and other API routes work. Use the included server:
+See [docs/how-to-get-evidence.md](docs/how-to-get-evidence.md) for the full walkthrough, including the CLI path.
 
-- **Build:** `yarn build`
-- **Run:** `yarn start` (or `node --import tsx/esm server.ts`) — serves `dist/` and API on `PORT` (default 3000).
+## CLI path (local / offline)
 
-**Required env in production:** `SESSION_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and either `OPENROUTER_API_KEY` **or** `OPENAI_API_KEY` (OpenRouter is recommended — see below). In GitHub OAuth App settings, set **Authorization callback URL** to `https://<your-domain>/api/auth/callback/github`. See [docs/oauth-scopes.md](docs/oauth-scopes.md).
+If you prefer to keep your token on your machine, use the CLI scripts:
 
-**OpenRouter (recommended):** Set `OPENROUTER_API_KEY` to your [OpenRouter](https://openrouter.ai) key. The pipeline defaults to `anthropic/claude-3.5-sonnet` — best-in-class instruction following and structured JSON quality for performance review generation. Override the model with `LLM_MODEL` (e.g. `LLM_MODEL=google/gemini-2.0-flash` for a faster/cheaper option). When `OPENROUTER_API_KEY` is set it takes priority over `OPENAI_API_KEY`.
+```bash
+# 1. Collect PRs and reviews from GitHub
+GITHUB_TOKEN=ghp_xxx yarn collect --start 2025-01-01 --end 2025-12-31 --output raw.json
 
-**OpenAI (legacy):** Set `OPENAI_API_KEY`. Default model is `gpt-4o-mini`; override with `LLM_MODEL`.
+# 2. Normalize into the evidence contract
+yarn normalize --input raw.json --output evidence.json
 
-**Optional (analytics):** `VITE_POSTHOG_API_KEY` (or `POSTHOG_API_KEY`) — enables client-side PostHog (pageviews and autocapture). For EU host use `VITE_POSTHOG_HOST=https://eu.i.posthog.com`. For server-side LLM analytics (Traces/Generations in PostHog) and Node logs (OTLP), set `POSTHOG_API_KEY` and optionally `POSTHOG_HOST` (default `https://us.i.posthog.com`). Same project token as frontend is fine. In PostHog: **Product → LLM analytics** (or filter Events by `$ai_generation`) for pipeline generations; **Logs** for server logs.
+# 3. Run the LLM pipeline locally (requires OPENROUTER_API_KEY or OPENAI_API_KEY)
+yarn generate evidence.json
+```
 
-## Scripts
+- `yarn generate` writes output to `./out` by default; use `--out <dir>` to override.
+- Override the LLM model with the `LLM_MODEL` env var (e.g. `LLM_MODEL=google/gemini-2.0-flash`).
 
-- **Collect (on-demand):** `GITHUB_TOKEN=xxx yarn collect --start YYYY-MM-DD --end YYYY-MM-DD --output raw.json` — fetches your PRs and reviews from GitHub for the date range. No cron required; run when you want fresh data.
-- **Normalize:** `yarn normalize --input raw.json --output evidence.json` — turns raw API output into the evidence contract.
-- **Generate:** `yarn generate evidence.json` — runs the LLM pipeline (themes → bullets → STAR → self-eval). Writes to `./out` by default; use `--out dir` to override. Requires `OPENROUTER_API_KEY` (recommended) or `OPENAI_API_KEY`. Override the model with `LLM_MODEL` env var.
+See `docs/data-collection.md` for more details.
 
-See `docs/data-collection.md` for on-demand vs optional periodic (cron) refresh. For future Slack/Jira and other sources, see `docs/multi-source-plan.md`.
+## Self-hosting
+
+The app requires a Node server so `/api/auth/*` and other API routes work.
+
+**Build & run:**
+```bash
+yarn build
+yarn start   # serves dist/ + API on PORT (default 3000)
+```
+
+The repo ships with `nixpacks.toml` for one-click Coolify deploys. See [docs/deploy-coolify.md](docs/deploy-coolify.md).
+
+**Required environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `SESSION_SECRET` | Random string for signing session cookies (e.g. `openssl rand -hex 32`) |
+| `GITHUB_CLIENT_ID` | From your [GitHub OAuth App](https://github.com/settings/developers) |
+| `GITHUB_CLIENT_SECRET` | From the same OAuth App |
+| `OPENROUTER_API_KEY` | **Recommended** LLM provider — defaults to `anthropic/claude-3.5-sonnet`. Takes priority over `OPENAI_API_KEY`. |
+| `OPENAI_API_KEY` | Alternative to OpenRouter — defaults to `gpt-4o-mini`. |
+
+In your GitHub OAuth App settings, set the **Authorization callback URL** to `https://<your-domain>/api/auth/callback/github`. See [docs/oauth-scopes.md](docs/oauth-scopes.md).
+
+**Optional environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `LLM_MODEL` | Override the default model (e.g. `google/gemini-2.0-flash`) |
+| `VITE_POSTHOG_API_KEY` / `POSTHOG_API_KEY` | Enables client-side PostHog analytics (pageviews, autocapture) and server-side LLM tracing |
+| `VITE_POSTHOG_HOST` / `POSTHOG_HOST` | PostHog host (default `https://us.i.posthog.com`; use `https://eu.i.posthog.com` for EU) |
+
+## Development
+
+```bash
+yarn          # install dependencies
+yarn dev      # start Vite dev server
+yarn test     # run Vitest tests
+yarn typecheck
+```
 
 ## Evidence grounding contract
-Every generated bullet/claim must cite evidence items by id+url. If impact is not proven, output must ask for confirmation instead of guessing.
+
+Every generated bullet/claim cites at least one evidence item by id + URL. If impact cannot be proven from GitHub alone, the output labels it _"needs confirmation"_ and asks a follow-up question rather than guessing.
