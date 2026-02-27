@@ -34,6 +34,11 @@ export default function Generate() {
   const [result, setResult] = useState<PipelineResultLike | null>(null);
   const [isPremiumResult, setIsPremiumResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [creditsPerPurchase, setCreditsPerPurchase] = useState(5);
+  const [priceCents, setPriceCents] = useState(100);
+  /** Credits remaining for the stored Stripe session ID, or null if unknown. */
+  const [premiumCredits, setPremiumCredits] = useState<number | null>(null);
 
   const onEvidenceReceived = useCallback((text: string) => {
     setEvidenceText(text);
@@ -49,15 +54,39 @@ export default function Generate() {
       setAuthError(true);
       window.history.replaceState({}, "", window.location.pathname);
     }
-    // Auto-generate premium report after returning from Stripe
+    // After returning from Stripe, persist session ID to localStorage for reuse across sessions.
     const sessionId = params.get("session_id");
     const isPremium = params.get("premium") === "1";
     if (sessionId && isPremium) {
       window.history.replaceState({}, "", window.location.pathname);
-      // Store session ID in sessionStorage so it survives a re-render
-      sessionStorage.setItem("stripe_session_id", sessionId);
+      try { localStorage.setItem("premium_stripe_session_id", sessionId); } catch { /* ignore */ }
+      // Also store in sessionStorage so the post-redirect auto-generate effect picks it up.
+      try { sessionStorage.setItem("stripe_session_id", sessionId); } catch { /* ignore */ }
     }
   }, []);
+
+  useEffect(() => {
+    fetch("/api/payments/config")
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean; credits_per_purchase?: number; price_cents?: number }) => {
+        setPaymentsEnabled(!!data.enabled);
+        if (data.credits_per_purchase) setCreditsPerPurchase(data.credits_per_purchase);
+        if (data.price_cents) setPriceCents(data.price_cents);
+      })
+      .catch(() => setPaymentsEnabled(false));
+  }, []);
+
+  // Check how many credits remain for any previously-stored Stripe session
+  useEffect(() => {
+    if (!paymentsEnabled) return;
+    let sessionId: string | null = null;
+    try { sessionId = localStorage.getItem("premium_stripe_session_id"); } catch { /* ignore */ }
+    if (!sessionId) return;
+    fetch(`/api/payments/credits/${encodeURIComponent(sessionId)}`)
+      .then((res) => (res.ok ? res.json() : { credits: 0 }))
+      .then((data: { credits?: number }) => setPremiumCredits(data.credits ?? 0))
+      .catch(() => {});
+  }, [paymentsEnabled]);
 
   const {
     collectStart,
@@ -144,6 +173,10 @@ export default function Generate() {
         const out = await pollJob(data.job_id, setProgress);
         setResult(out as PipelineResultLike);
         setIsPremiumResult(!!data.premium);
+        // Update displayed credit count if the server returned updated remaining credits
+        if (typeof data.credits_remaining === "number") {
+          setPremiumCredits(data.credits_remaining);
+        }
         posthog?.capture("review_generate_completed", { premium: !!data.premium });
       } else if (!res.ok) {
         throw new Error((data.error as string) || "Generate failed");
@@ -159,6 +192,13 @@ export default function Generate() {
       setLoading(false);
       setProgress("");
     }
+  };
+
+  const handleUsePremiumCredit = () => {
+    let sessionId: string | null = null;
+    try { sessionId = localStorage.getItem("premium_stripe_session_id"); } catch { /* ignore */ }
+    if (!sessionId) return;
+    handleGenerate(sessionId);
   };
 
   const handleUpgradeToPremium = async () => {
@@ -197,22 +237,25 @@ export default function Generate() {
 
   // After returning from Stripe, restore evidence and auto-generate premium report
   useEffect(() => {
-    const savedSessionId = sessionStorage.getItem("stripe_session_id");
+    let savedSessionId: string | null = null;
+    try { savedSessionId = sessionStorage.getItem("stripe_session_id"); } catch { /* ignore */ }
     if (!savedSessionId) return;
-    sessionStorage.removeItem("stripe_session_id");
-    const savedEvidence = sessionStorage.getItem("premium_evidence");
-    const savedGoals = sessionStorage.getItem("premium_goals");
+    try { sessionStorage.removeItem("stripe_session_id"); } catch { /* ignore */ }
+    let savedEvidence: string | null = null;
+    let savedGoals: string | null = null;
+    try { savedEvidence = sessionStorage.getItem("premium_evidence"); } catch { /* ignore */ }
+    try { savedGoals = sessionStorage.getItem("premium_goals"); } catch { /* ignore */ }
     if (savedEvidence) {
-      sessionStorage.removeItem("premium_evidence");
+      try { sessionStorage.removeItem("premium_evidence"); } catch { /* ignore */ }
       setEvidenceText(savedEvidence);
     }
     if (savedGoals) {
-      sessionStorage.removeItem("premium_goals");
+      try { sessionStorage.removeItem("premium_goals"); } catch { /* ignore */ }
       setGoals(savedGoals);
     }
     if (savedEvidence) {
       // Short timeout to let state settle before generating
-      const timer = setTimeout(() => handleGenerate(savedSessionId), STRIPE_RETURN_DELAY_MS);
+      const timer = setTimeout(() => handleGenerate(savedSessionId!), STRIPE_RETURN_DELAY_MS);
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -583,17 +626,32 @@ yarn normalize --input raw.json --output evidence.json`}
             onClick={() => handleGenerate()}
             disabled={loading}
           >
-            {loading ? "Generating…" : "3. Generate review (free)"}
+            {loading ? "Generating…" : paymentsEnabled ? "3. Generate review (free)" : "3. Generate review"}
           </button>
-          <button
-            type="button"
-            className="generate-btn generate-btn-premium"
-            onClick={handleUpgradeToPremium}
-            disabled={loading}
-            title="Uses a state-of-the-art model for a higher quality report"
-          >
-            ✦ Generate premium report ($1)
-          </button>
+          {paymentsEnabled && (
+            premiumCredits !== null && premiumCredits > 0 ? (
+              <button
+                type="button"
+                className="generate-btn generate-btn-premium"
+                onClick={handleUsePremiumCredit}
+                disabled={loading}
+                title="Uses a state-of-the-art model for a higher quality report"
+              >
+                ✦ Generate premium report
+                <span className="generate-btn-credits">{premiumCredits} credit{premiumCredits !== 1 ? "s" : ""} left</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="generate-btn generate-btn-premium"
+                onClick={handleUpgradeToPremium}
+                disabled={loading}
+                title={`${creditsPerPurchase} premium runs for $${(priceCents / 100).toFixed(2)} — uses a state-of-the-art model`}
+              >
+                ✦ Get {creditsPerPurchase} premium runs (${(priceCents / 100).toFixed(2)})
+              </button>
+            )
+          )}
         </div>
 
         {result && (

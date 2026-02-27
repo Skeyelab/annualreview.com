@@ -24,6 +24,7 @@ describe("Generate", () => {
     vi.stubGlobal("fetch", vi.fn());
     vi.mocked(fetch).mockImplementation((url) => {
       if (String(url) === "/api/auth/me") return Promise.resolve(mockRes({}, false, 401));
+      if (String(url) === "/api/payments/config") return Promise.resolve(mockRes({ enabled: false }));
       return Promise.reject(new Error("Unmocked: " + url));
     });
   });
@@ -41,7 +42,8 @@ describe("Generate", () => {
 
   it("Try sample loads sample JSON into textarea", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(mockRes({}, false, 401))
+      .mockResolvedValueOnce(mockRes({}, false, 401))           // /api/auth/me
+      .mockResolvedValueOnce(mockRes({ enabled: false }))       // /api/payments/config
       .mockResolvedValueOnce(
         mockRes({ timeframe: { start_date: "2025-01-01", end_date: "2025-12-31" }, contributions: [] })
       );
@@ -81,7 +83,9 @@ describe("Generate", () => {
     await waitFor(() => {
       expect(screen.getByText(/paste your github token above/i)).toBeInTheDocument();
     });
-    expect(fetch).toHaveBeenCalledTimes(1);
+    // Only the two mount-time fetches (auth/me + payments/config) — no collect call.
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).not.toHaveBeenCalledWith("/api/collect", expect.anything());
   });
 
   it("Fetch my data: on success fills evidence textarea (background job)", async () => {
@@ -90,9 +94,10 @@ describe("Generate", () => {
       contributions: [{ id: "org/repo#1", type: "pull_request", title: "Fix", url: "https://github.com/org/repo/pull/1", repo: "org/repo" }],
     };
     vi.mocked(fetch)
-      .mockResolvedValueOnce(mockRes({}, false, 401))
-      .mockResolvedValueOnce(mockRes({ job_id: "j1" }, true, 202))
-      .mockResolvedValueOnce(mockRes({ status: "done", result: evidence }));
+      .mockResolvedValueOnce(mockRes({}, false, 401))           // /api/auth/me
+      .mockResolvedValueOnce(mockRes({ enabled: false }))       // /api/payments/config
+      .mockResolvedValueOnce(mockRes({ job_id: "j1" }, true, 202))  // /api/collect
+      .mockResolvedValueOnce(mockRes({ status: "done", result: evidence })); // /api/jobs/j1
     render(<Generate />);
     fireEvent.click(screen.getByRole("tab", { name: /paste a personal access token/i }));
     const tokenInput = screen.getByPlaceholderText(/paste your github token/i);
@@ -114,8 +119,9 @@ describe("Generate", () => {
 
   it("Fetch my data: on API error shows message", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(mockRes({}, false, 401))
-      .mockResolvedValueOnce(mockRes({ error: "Invalid token" }, false));
+      .mockResolvedValueOnce(mockRes({}, false, 401))           // /api/auth/me
+      .mockResolvedValueOnce(mockRes({ enabled: false }))       // /api/payments/config
+      .mockResolvedValueOnce(mockRes({ error: "Invalid token" }, false)); // /api/collect
     render(<Generate />);
     fireEvent.click(screen.getByRole("tab", { name: /paste a personal access token/i }));
     fireEvent.change(screen.getByPlaceholderText(/paste your github token/i), { target: { value: "ghp_bad" } });
@@ -127,8 +133,9 @@ describe("Generate", () => {
 
   it("when signed in shows Signed in as login and Fetch my data on first tab", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(mockRes({ login: "alice", scope: "read:user" }))
-      .mockResolvedValueOnce(mockRes({ latest: null }));
+      .mockResolvedValueOnce(mockRes({ login: "alice", scope: "read:user" })) // /api/auth/me
+      .mockResolvedValueOnce(mockRes({ enabled: false }))                      // /api/payments/config
+      .mockResolvedValueOnce(mockRes({ latest: null }));                        // /api/jobs
     render(<Generate />);
     await waitFor(() => {
       expect(screen.getByText("alice")).toBeInTheDocument();
@@ -136,6 +143,26 @@ describe("Generate", () => {
     expect(screen.getByText(/signed in as/i)).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /fetch your data/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /fetch my data/i })).toBeInTheDocument();
+  });
+
+  it("premium button hidden when payments not enabled", async () => {
+    render(<Generate />);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/payments/config"));
+    expect(screen.queryByRole("button", { name: /premium/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /generate review/i })).toBeInTheDocument();
+  });
+
+  it("premium button shown when payments are enabled", async () => {
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url) === "/api/auth/me") return Promise.resolve(mockRes({}, false, 401));
+      if (String(url) === "/api/payments/config") return Promise.resolve(mockRes({ enabled: true, credits_per_purchase: 5, price_cents: 100 }));
+      return Promise.reject(new Error("Unmocked: " + url));
+    });
+    render(<Generate />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /premium/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: /5 premium runs/i })).toBeInTheDocument();
   });
 });
 

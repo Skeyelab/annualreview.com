@@ -1,5 +1,6 @@
 /**
  * Payments API:
+ *   GET  /config   – returns { enabled: boolean } so the frontend knows whether payments are configured
  *   POST /checkout  – create Stripe Checkout session for premium report ($1)
  *   POST /webhook   – handle Stripe webhook events (mark sessions as paid)
  *
@@ -9,8 +10,7 @@
 
 import type { IncomingMessage, ServerResponse } from "http";
 import Stripe from "stripe";
-import { markSessionPaid } from "../../lib/payment-store.js";
-
+import { awardCredits, getCredits, CREDITS_PER_PURCHASE } from "../../lib/payment-store.js";
 export interface PaymentsRoutesOptions {
   respondJson: (res: ServerResponse, status: number, data: object) => void;
   getStripe?: () => Stripe | null;
@@ -44,6 +44,22 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
   ): Promise<void> {
     const path = (req.url?.split("?")[0] || "").replace(/^\/+/, "") || "";
 
+    if (path === "config" && req.method === "GET") {
+      const enabled = getStripe() !== null;
+      respondJson(res, 200, {
+        enabled,
+        price_cents: Number(process.env.STRIPE_PRICE_CENTS) || 100,
+        credits_per_purchase: CREDITS_PER_PURCHASE,
+      });
+      return;
+    }
+
+    // GET /credits/:sessionId – returns remaining credits for a Stripe session
+    if (path.startsWith("credits/") && req.method === "GET") {
+      const sessionId = decodeURIComponent(path.slice("credits/".length));
+      respondJson(res, 200, { credits: getCredits(sessionId) });
+      return;
+    }
     if (path === "checkout" && req.method === "POST") {
       const stripe = getStripe();
       if (!stripe) {
@@ -110,7 +126,7 @@ export function paymentsRoutes(options: PaymentsRoutesOptions) {
         if (event.type === "checkout.session.completed") {
           const session = event.data.object as Stripe.Checkout.Session;
           if (session.payment_status === "paid" && session.id) {
-            markSessionPaid(session.id);
+            awardCredits(session.id);
           }
         }
         respondJson(res, 200, { received: true });

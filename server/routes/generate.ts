@@ -8,7 +8,7 @@ import type { IncomingMessage, ServerResponse } from "http";
 import type { ValidationResult } from "../../lib/validate-evidence.js";
 import type { Evidence } from "../../types/evidence.js";
 import type { PipelineResult } from "../../lib/run-pipeline.js";
-import { isSessionPaid, markSessionPaid } from "../../lib/payment-store.js";
+import { awardCredits, deductCredit, getCredits } from "../../lib/payment-store.js";
 import Stripe from "stripe";
 
 export interface GenerateRoutesOptions {
@@ -35,15 +35,14 @@ function defaultGetStripe(): Stripe | null {
   return key ? new Stripe(key) : null;
 }
 
-/** Verify a Stripe Checkout session is paid. Returns true on success. */
+/** Verify a Stripe Checkout session is paid, awarding credits if not already credited. Returns true on success. */
 async function verifyStripeSession(sessionId: string, getStripe: () => Stripe | null): Promise<boolean> {
-  if (isSessionPaid(sessionId)) return true;
   const stripe = getStripe();
   if (!stripe) return false;
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.payment_status === "paid") {
-      markSessionPaid(sessionId);
+      awardCredits(sessionId); // idempotent — won't double-credit
       return true;
     }
   } catch {
@@ -90,14 +89,27 @@ export function generateRoutes(options: GenerateRoutesOptions) {
         return;
       }
 
-      // Verify payment if a session ID was provided
+      // Verify payment / deduct credit if a Stripe session ID was provided
       let premium = false;
+      let creditsRemaining: number | undefined;
       if (stripeSessionId) {
-        premium = await verifyStripeSession(stripeSessionId, getStripe);
-        if (!premium) {
-          respondJson(res, 402, { error: "Payment required or session not found" });
+        // Fast path: session already has credits awarded (e.g. webhook already fired).
+        let debited = deductCredit(stripeSessionId);
+        if (!debited) {
+          // Slow path: no credits yet — verify with Stripe (also awards credits if paid).
+          const verified = await verifyStripeSession(stripeSessionId, getStripe);
+          if (!verified) {
+            respondJson(res, 402, { error: "Payment required or session not found" });
+            return;
+          }
+          debited = deductCredit(stripeSessionId);
+        }
+        if (!debited) {
+          respondJson(res, 402, { error: "No premium credits remaining" });
           return;
         }
+        premium = true;
+        creditsRemaining = getCredits(stripeSessionId);
       }
 
       const jobId = createJob(premium ? "generate-premium" : "generate");
@@ -108,7 +120,11 @@ export function generateRoutes(options: GenerateRoutesOptions) {
             report({ progress: `${stepIndex}/${total} ${label}` }),
         })
       );
-      respondJson(res, 202, { job_id: jobId, premium });
+      respondJson(res, 202, {
+        job_id: jobId,
+        premium,
+        ...(creditsRemaining !== undefined ? { credits_remaining: creditsRemaining } : {}),
+      });
     } catch (e) {
       const err = e as Error;
       respondJson(res, 500, { error: err.message || "Pipeline failed" });

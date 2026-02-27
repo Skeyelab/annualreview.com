@@ -475,10 +475,22 @@
 .generate-btn-premium {
   background: #7c3aed;
   color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .generate-btn-premium:hover:not(:disabled) {
   background: #6d28d9;
+}
+
+.generate-btn-credits {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.1rem 0.4rem;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  letter-spacing: 0.02em;
 }
 
 .generate-premium-badge {

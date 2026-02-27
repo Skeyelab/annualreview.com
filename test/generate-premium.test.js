@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { generateRoutes } from "../server/routes/generate.ts";
-import { clearPaymentStore, markSessionPaid } from "../lib/payment-store.ts";
+import { clearCreditStore, awardCredits, getCredits } from "../lib/payment-store.ts";
 
 function respondJson(res, status, data) {
   res.statusCode = status;
@@ -41,7 +41,7 @@ function makeOptions(overrides = {}) {
 }
 
 describe("generateRoutes – premium flag", () => {
-  beforeEach(() => clearPaymentStore());
+  beforeEach(() => clearCreditStore());
 
   it("runs free pipeline when no stripe_session_id", async () => {
     const opts = makeOptions();
@@ -55,6 +55,7 @@ describe("generateRoutes – premium flag", () => {
       expect.objectContaining({ premium: false })
     );
     expect(res.body).toMatchObject({ job_id: "job-1", premium: false });
+    expect(res.body).not.toHaveProperty("credits_remaining");
   });
 
   it("returns 402 when stripe_session_id is provided but session not paid", async () => {
@@ -80,12 +81,12 @@ describe("generateRoutes – premium flag", () => {
     expect(opts.runPipeline).not.toHaveBeenCalled();
   });
 
-  it("runs premium pipeline when stripe session is already marked paid", async () => {
-    markSessionPaid("cs_paid_123");
+  it("runs premium pipeline and deducts one credit when session has credits", async () => {
+    awardCredits("cs_with_credits"); // awards CREDITS_PER_PURCHASE (default 5)
     const opts = makeOptions({
       readJsonBody: vi.fn().mockResolvedValue({
         ...validEvidence,
-        _stripe_session_id: "cs_paid_123",
+        _stripe_session_id: "cs_with_credits",
       }),
     });
     const handler = generateRoutes(opts);
@@ -98,9 +99,12 @@ describe("generateRoutes – premium flag", () => {
       expect.objectContaining({ premium: true })
     );
     expect(res.body).toMatchObject({ job_id: "job-1", premium: true });
+    // One credit deducted from 5 → 4 remaining
+    expect(res.body.credits_remaining).toBe(4);
+    expect(getCredits("cs_with_credits")).toBe(4);
   });
 
-  it("runs premium pipeline when stripe session is verified as paid via API", async () => {
+  it("runs premium pipeline when stripe session is verified as paid via API (awards then deducts)", async () => {
     const mockStripe = {
       checkout: {
         sessions: {
@@ -124,11 +128,38 @@ describe("generateRoutes – premium flag", () => {
       expect.anything(),
       expect.objectContaining({ premium: true })
     );
-    expect(res.body).toMatchObject({ premium: true });
+    // 5 awarded, 1 deducted → 4 remaining
+    expect(res.body.credits_remaining).toBe(4);
+  });
+
+  it("returns 402 when credits are exhausted", async () => {
+    // Award and exhaust all credits
+    awardCredits("cs_exhausted");
+    for (let i = 0; i < 5; i++) {
+      const opts = makeOptions({
+        readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_exhausted" }),
+      });
+      const res = mockRes();
+      await generateRoutes(opts)({ method: "POST", url: "/" }, res, () => {});
+    }
+    // Now out of credits — next call should 402
+    const opts = makeOptions({
+      readJsonBody: vi.fn().mockResolvedValue({ ...validEvidence, _stripe_session_id: "cs_exhausted" }),
+      getStripe: () => ({
+        checkout: {
+          sessions: {
+            retrieve: vi.fn().mockResolvedValue({ payment_status: "unpaid", id: "cs_exhausted" }),
+          },
+        },
+      }),
+    });
+    const res = mockRes();
+    await generateRoutes(opts)({ method: "POST", url: "/" }, res, () => {});
+    expect(res.statusCode).toBe(402);
   });
 
   it("strips _stripe_session_id from evidence before validation and pipeline", async () => {
-    markSessionPaid("cs_strip_test");
+    awardCredits("cs_strip_test");
     let capturedEvidence = null;
     const opts = makeOptions({
       readJsonBody: vi.fn().mockResolvedValue({

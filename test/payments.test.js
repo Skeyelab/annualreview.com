@@ -36,6 +36,27 @@ function respondJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+describe("paymentsRoutes – config", () => {
+  it("returns enabled:false when Stripe is not configured", async () => {
+    const handler = paymentsRoutes({ respondJson, getStripe: () => null });
+    const req = mockReq("GET", "/config");
+    const res = mockRes();
+    await handler(req, res, () => {});
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ enabled: false });
+  });
+
+  it("returns enabled:true when Stripe is configured", async () => {
+    const mockStripe = { checkout: { sessions: {} } };
+    const handler = paymentsRoutes({ respondJson, getStripe: () => /** @type {any} */ (mockStripe) });
+    const req = mockReq("GET", "/config");
+    const res = mockRes();
+    await handler(req, res, () => {});
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ enabled: true });
+  });
+});
+
 describe("paymentsRoutes – checkout", () => {
   it("returns 503 when STRIPE_SECRET_KEY is not set", async () => {
     const handler = paymentsRoutes({ respondJson, getStripe: () => null });
